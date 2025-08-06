@@ -15,14 +15,10 @@ const allowedOrigins = [
   'http://localhost:3000',
   'http://192.168.1.48:3005',
   'https://main.d7drqxc8d92jq.amplifyapp.com',
-  'https://backendcianita.onrender.com',
-  'https://main.d7drqxc8d92jq.amplifyapp.com/',
   'http://146.190.127.243:3000',
-  'http://ubuntu-s-1vcpu-512mb-10gb-sfo3-01',  
-  'https://www.cianitasublimados.com',
-  'https://www.tiendapalacios.shop',
-  'https://tiendapalacios.shop',
-  'https://main.d25p6d7aymkhrx.amplifyapp.com',
+  'http://MiscelaniaLis',  
+  'https://www.miscelanialis.shop',
+  'https://miscelanialis.shop',
 ]; // Cambia 'http://localhost:3005' a la URL de tu frontend
 
 // Opciones de configuración de CORS
