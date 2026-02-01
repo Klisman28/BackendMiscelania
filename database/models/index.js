@@ -21,8 +21,13 @@ const { ProductSale, ProductSaleSchema } = require('./product-sale.model');
 const { Cashier, CashierSchema } = require('./cashier.model');
 const { Opening, OpeningSchema } = require('./opening.model');
 const { Config, ConfigSchema } = require('./config.model');
-const {Note, NoteSchema} = require('./note.model');
-const {Ticket, TicketSchema} =require('./ticket.model');
+const { Note, NoteSchema } = require('./note.model');
+const { Ticket, TicketSchema } = require('./ticket.model');
+const { Warehouse, WarehouseSchema } = require('./warehouse.model');
+const { InventoryBalance, InventoryBalanceSchema } = require('./inventory-balance.model');
+const { InventoryMovement, InventoryMovementSchema } = require('./inventory-movement.model');
+const { Transfer, TransferSchema } = require('./transfer.model');
+const { TransferItem, TransferItemSchema } = require('./transfer-item.model');
 
 function setupModels(sequelize) {
     // Inicializations
@@ -50,8 +55,13 @@ function setupModels(sequelize) {
     ProductSale.init(ProductSaleSchema, ProductSale.config(sequelize));
     Config.init(ConfigSchema, Config.config(sequelize));
     Note.init(NoteSchema, Note.config(sequelize));
-    Ticket.init(TicketSchema,Ticket.config(sequelize));
-    
+    Ticket.init(TicketSchema, Ticket.config(sequelize));
+    Warehouse.init(WarehouseSchema, Warehouse.config(sequelize));
+    InventoryBalance.init(InventoryBalanceSchema, InventoryBalance.config(sequelize));
+    InventoryMovement.init(InventoryMovementSchema, InventoryMovement.config(sequelize));
+    Transfer.init(TransferSchema, Transfer.config(sequelize));
+    TransferItem.init(TransferItemSchema, TransferItem.config(sequelize));
+
 
 
     // Associations
@@ -66,6 +76,11 @@ function setupModels(sequelize) {
     Cashier.associate(sequelize.models);
     Opening.associate(sequelize.models);
     Sale.associate(sequelize.models);
+    Warehouse.associate(sequelize.models);
+    InventoryBalance.associate(sequelize.models);
+    InventoryMovement.associate(sequelize.models);
+    Transfer.associate(sequelize.models);
+    TransferItem.associate(sequelize.models);
 
     //slugs
     Brand.slugify(sequelize.models);

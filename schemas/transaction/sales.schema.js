@@ -12,6 +12,7 @@ const total = Joi.number().precision(2);
 const status = Joi.number().integer().positive();
 const products = Joi.array().min(1);
 const openingId = Joi.number().integer();
+const warehouseId = Joi.number().integer();
 
 const offset = Joi.number().integer();
 const limit = Joi.number().integer();
@@ -32,7 +33,9 @@ const createSaleSchema = Joi.object({
     igv: igv,
     total: total.required(),
     status,
+    status,
     openingId: openingId.required(),
+    warehouseId: warehouseId.required(),
     products: products.required(),
 });
 

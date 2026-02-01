@@ -194,9 +194,20 @@ class SalesService {
 
       // 2. Si es venta tipo Ticket, asignar y formatear número
       if (data.type === 'Ticket') {
-        // padStart con la longitud actual de ticketNum en dígitos
         const digitCount = String(config.ticketNum).length;
         data.number = String(config.ticketNum).padStart(digitCount, '0');
+      }
+
+      // Validar Warehouse
+      if (!data.warehouseId) {
+        // Fallback or Error? 
+        // For now, let's enforce warehouseId. If legacy clients exist, we might need a default.
+        // Assuming user will send it.
+        throw boom.badRequest('warehouseId es requerido');
+      }
+      const warehouse = await models.Warehouse.findByPk(data.warehouseId, { transaction: t });
+      if (!warehouse || !warehouse.active) {
+        throw boom.badRequest('Bodega inválida o inactiva');
       }
 
       // 3. Crear la venta
@@ -219,11 +230,19 @@ class SalesService {
             throw boom.badRequest(`Producto ${item.productId} no existe`);
           }
 
-          // Validar stock suficiente
-          if (product.stock < item.quantity) {
+          // Validar stock suficiente en BODEGA
+          const balance = await models.InventoryBalance.findOne({
+            where: { warehouseId: data.warehouseId, productId: item.productId },
+            transaction: t,
+            lock: t.LOCK.UPDATE
+          });
+
+          const currentStock = balance ? balance.quantity : 0;
+
+          if (currentStock < item.quantity) {
             throw boom.conflict(
-              `Stock insuficiente para ${product.name} (id ${product.id}). ` +
-              `Stock actual: ${product.stock}, solicitado: ${item.quantity}`
+              `Stock insuficiente en bodega para ${product.name} (id ${product.id}). ` +
+              `Stock actual: ${currentStock}, solicitado: ${item.quantity}`
             );
           }
 
@@ -231,16 +250,25 @@ class SalesService {
           await sale.addProduct(product, {
             through: {
               quantity: item.quantity,
-              unitPrice: item.unitPrice, // usa el nombre de tu modelo (unit_price vs unitPrice)
+              unitPrice: item.unitPrice,
             },
             transaction: t,
           });
 
-          // **Restar** stock
-          await models.Product.decrement(
-            { stock: item.quantity },
-            { where: { id: item.productId }, transaction: t }
-          );
+          // **Restar** stock de la bodega
+          await balance.decrement('quantity', { by: item.quantity, transaction: t });
+
+          // Registrar Movimiento SALE
+          await models.InventoryMovement.create({
+            productId: item.productId,
+            warehouseId: data.warehouseId,
+            type: 'SALE',
+            quantity: item.quantity,
+            referenceId: sale.id.toString(),
+            description: `Venta ${sale.type} ${sale.number || sale.id}`,
+            userId: null, // Si data.userId existe, usarlo
+            createdAt: new Date()
+          }, { transaction: t });
         }
       }
 
@@ -394,14 +422,40 @@ class SalesService {
     try {
       // Restauramos el stock de cada producto (si hay productos)
       if (sale.products && sale.products.length > 0) {
+        // Asumimos que si la venta tiene warehouseId, usamos ese. Si no, usamos Main (1).
+        const warehouseId = sale.warehouseId || 1;
+
         for (const product of sale.products) {
           const quantity = product.item.quantity;
-          console.log(`Restaurando stock para el producto con ID ${product.id}, sumando ${quantity} unidades al stock actual.`);
+          console.log(`Restaurando stock para el producto con ID ${product.id}, sumando ${quantity} unidades al stock actual en bodega ${warehouseId}.`);
 
-          await models.Product.update(
-            { stock: Sequelize.literal(`stock + ${quantity}`) },
-            { where: { id: product.id }, transaction: t }
-          );
+          const balance = await models.InventoryBalance.findOne({
+            where: { warehouseId, productId: product.id },
+            transaction: t
+          });
+
+          if (balance) {
+            await balance.increment('quantity', { by: quantity, transaction: t });
+          } else {
+            // Should not happen usually, but create if missing
+            await models.InventoryBalance.create({
+              warehouseId,
+              productId: product.id,
+              quantity
+            }, { transaction: t });
+          }
+
+          // Registrar Movimiento
+          await models.InventoryMovement.create({
+            productId: product.id,
+            warehouseId: warehouseId,
+            type: 'ADJUSTMENT_IN', // Or SALE_CANCEL
+            quantity: quantity,
+            referenceId: sale.id.toString(),
+            description: `Eliminación Venta ${sale.id}`,
+            userId: null,
+            createdAt: new Date()
+          }, { transaction: t });
         }
       }
 
@@ -444,14 +498,38 @@ class SalesService {
       if (sale.products && sale.products.length > 0) {
         console.log(`Productos asociados a la venta con ID ${id}: ${sale.products.length} productos.`);
 
+        const warehouseId = sale.warehouseId || 1;
+
         for (const product of sale.products) {
           const quantity = product.item.quantity;
-          console.log(`Actualizando stock para el producto con ID ${product.id}, aumentando ${quantity} unidades al stock actual.`);
+          console.log(`Actualizando stock para el producto con ID ${product.id}, aumentando ${quantity} unidades al stock actual en bodega ${warehouseId}.`);
 
-          await models.Product.update(
-            { stock: models.Sequelize.literal(`stock + ${quantity}`) },
-            { where: { id: product.id }, transaction: t }
-          );
+          const balance = await models.InventoryBalance.findOne({
+            where: { warehouseId, productId: product.id },
+            transaction: t
+          });
+
+          if (balance) {
+            await balance.increment('quantity', { by: quantity, transaction: t });
+          } else {
+            await models.InventoryBalance.create({
+              warehouseId,
+              productId: product.id,
+              quantity
+            }, { transaction: t });
+          }
+
+          // Registrar Movimiento
+          await models.InventoryMovement.create({
+            productId: product.id,
+            warehouseId: warehouseId,
+            type: 'SALE_RETURN',
+            quantity: quantity,
+            referenceId: sale.id.toString(),
+            description: `Devolución Venta ${sale.id}`,
+            userId: null,
+            createdAt: new Date()
+          }, { transaction: t });
         }
       }
 

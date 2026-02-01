@@ -12,12 +12,14 @@ const authRouter = require('./auth/auth.router');
 const employeesRouter = require('./organization/employees.router');
 const usersRouter = require('./organization/users.router');
 const suppliersRouter = require('./organization/suppliers.router');
+const warehousesRouter = require('./organization/warehouses.router');
 
 const purchasesRouter = require('./transaction/purchases.router');
 const cashiersRouter = require('./transaction/cashier.router');
 const openingsRouter = require('./transaction/openings.router');
 const salesRouter = require('./transaction/sales.router');
 const configsRouter = require('./transaction/configs.router');
+const inventoryRouter = require('./transaction/inventory.router');
 
 const customersRouter = require('./client/customers.router');
 const enterprisesRouter = require('./client/enterprises.router');
@@ -31,11 +33,11 @@ function apiRouter(app) {
 
     app.use('/api/v1', router);
 
-     router.get('/', (req, res) => {
+    router.get('/', (req, res) => {
         res.json({ message: 'API v1 activa' });
     });
 
-     router.get('/healthcheck', (req, res) => {
+    router.get('/healthcheck', (req, res) => {
         res.status(200).json({ status: 'ok', uptime: process.uptime() });
     });
 
@@ -70,7 +72,7 @@ function apiRouter(app) {
 
     router.use('/products', passport.authenticate('jwt',
         { session: false }),
-        checkRoles('almacenero','cajero','admin'),
+        checkRoles('almacenero', 'cajero', 'admin'),
         productsRouter
     );
 
@@ -143,6 +145,18 @@ function apiRouter(app) {
         { session: false }),
         checkRoles('cajero', 'admin'),
         notesRouter
+    );
+
+    router.use('/warehouses', passport.authenticate('jwt',
+        { session: false }),
+        checkRoles('almacenero', 'admin'),
+        warehousesRouter
+    );
+
+    router.use('/inventory', passport.authenticate('jwt',
+        { session: false }),
+        checkRoles('almacenero', 'admin'),
+        inventoryRouter
     );
 
 

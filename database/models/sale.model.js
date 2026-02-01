@@ -46,6 +46,17 @@ const SaleSchema = {
         onUpdate: 'CASCADE',
         onDelete: 'CASCADE'
     },
+    warehouseId: {
+        field: 'warehouse_id',
+        allowNull: true, // Optional initially to support legacy sales or migraton
+        type: DataTypes.INTEGER,
+        references: {
+            model: 'warehouses', // Literal string as I can't import WAREHOUSE_TABLE here easily without circular dep risk effectively or just use string
+            key: 'id'
+        },
+        onUpdate: 'CASCADE',
+        onDelete: 'RESTRICT'
+    },
     type: {
         allowNull: true,
         type: DataTypes.STRING
@@ -72,6 +83,10 @@ class Sale extends Model {
 
         this.belongsTo(models.Opening, {
             as: 'opening'
+        });
+
+        this.belongsTo(models.Warehouse, {
+            as: 'warehouse'
         });
 
         this.belongsTo(models.Customer, {
