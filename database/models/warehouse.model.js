@@ -14,6 +14,10 @@ const WarehouseSchema = {
         type: DataTypes.STRING,
         unique: true
     },
+    code: {
+        allowNull: true,
+        type: DataTypes.STRING(20)
+    },
     address: {
         allowNull: true,
         type: DataTypes.STRING
