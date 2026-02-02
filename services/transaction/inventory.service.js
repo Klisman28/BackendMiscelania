@@ -1,4 +1,5 @@
 const boom = require('@hapi/boom');
+const { Op } = require('sequelize');
 const { models, sequelize } = require('../../libs/sequelize');
 
 class InventoryService {
@@ -191,6 +192,111 @@ class InventoryService {
             await t.rollback();
             throw error;
         }
+    }
+
+    async listTransfers(query) {
+        const { pageIndex = 1, pageSize = 10, search, sort } = query;
+        const limit = parseInt(pageSize, 10);
+        const offset = (parseInt(pageIndex, 10) - 1) * limit;
+
+        const options = {
+            limit,
+            offset,
+            include: [
+                { model: models.Warehouse, as: 'fromWarehouse' },
+                { model: models.Warehouse, as: 'toWarehouse' }
+            ],
+            attributes: {
+                include: [
+                    [
+                        sequelize.literal(`(
+                            SELECT COUNT(*)
+                            FROM transfer_items AS ti
+                            WHERE ti.transfer_id = Transfer.id
+                        )`),
+                        'itemsCount'
+                    ]
+                ]
+            }
+        };
+
+        if (search) {
+            options.where = {
+                [Op.or]: [
+                    { observation: { [Op.like]: `%${search}%` } },
+                    { status: { [Op.like]: `%${search}%` } },
+                    { '$fromWarehouse.name$': { [Op.like]: `%${search}%` } }, // Requiere 'fromWarehouse' in include with alias
+                    { '$toWarehouse.name$': { [Op.like]: `%${search}%` } }
+                ]
+            };
+            if (!isNaN(search)) {
+                options.where[Op.or].push({ id: search });
+            }
+        }
+
+        // Sort
+        let order = [['date', 'DESC']];
+        const sortWhitelist = ['id', 'date', 'createdAt', 'status', 'observation'];
+
+        if (sort) {
+            try {
+                let sortPars;
+                try {
+                    sortPars = JSON.parse(sort);
+                } catch (e) {
+                    sortPars = JSON.parse(decodeURIComponent(sort));
+                }
+
+                if (Array.isArray(sortPars)) {
+                    const validSorts = sortPars
+                        .filter(s => s.key && sortWhitelist.includes(s.key))
+                        .map(s => {
+                            const dir = (s.order && s.order.toLowerCase() === 'asc') ? 'ASC' : 'DESC';
+                            return [s.key, dir];
+                        });
+
+                    if (validSorts.length > 0) {
+                        order = validSorts;
+                    }
+                }
+            } catch (e) {
+                console.error('Sort parse error:', e);
+            }
+        }
+        options.order = order;
+
+        const { count, rows } = await models.Transfer.findAndCountAll(options);
+
+        return {
+            data: rows,
+            meta: {
+                pageIndex: parseInt(pageIndex, 10),
+                pageSize: limit,
+                total: count
+            }
+        };
+    }
+
+    async getTransferById(id) {
+        const transfer = await models.Transfer.findByPk(id, {
+            include: [
+                { model: models.Warehouse, as: 'fromWarehouse' },
+                { model: models.Warehouse, as: 'toWarehouse' },
+                {
+                    model: models.TransferItem,
+                    as: 'items',
+                    include: [
+                        { model: models.Product, as: 'product' }
+                    ]
+                }
+            ]
+        });
+
+        if (!transfer) {
+            throw boom.notFound('Transferencia no encontrada');
+        }
+
+        return transfer;
     }
 
     async getBalance(warehouseId) {

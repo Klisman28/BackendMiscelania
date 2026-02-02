@@ -41,7 +41,7 @@ const TransferItemSchema = {
 
 class TransferItem extends Model {
     static associate(models) {
-        // defined in Transfer belongsToMany
+        this.belongsTo(models.Product, { as: 'product', foreignKey: 'productId' });
     }
 
     static config(sequelize) {

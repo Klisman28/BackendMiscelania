@@ -2,7 +2,7 @@ const express = require('express');
 
 const InventoryService = require('../../services/transaction/inventory.service');
 const validatorHandler = require('../../middlewares/validator.handler');
-const { addStockSchema, removeStockSchema, transferSchema } = require('../../schemas/transaction/inventory.schema');
+const { addStockSchema, removeStockSchema, transferSchema, queryTransferSchema, getTransferSchema } = require('../../schemas/transaction/inventory.schema');
 
 const router = express.Router();
 const service = new InventoryService();
@@ -40,6 +40,31 @@ router.post('/transfer',
             const body = req.body;
             const result = await service.transfer(body);
             res.status(201).json(result);
+        } catch (error) {
+            next(error);
+        }
+    }
+);
+
+router.get('/transfers',
+    validatorHandler(queryTransferSchema, 'query'),
+    async (req, res, next) => {
+        try {
+            const result = await service.listTransfers(req.query);
+            res.json(result);
+        } catch (error) {
+            next(error);
+        }
+    }
+);
+
+router.get('/transfers/:id',
+    validatorHandler(getTransferSchema, 'params'),
+    async (req, res, next) => {
+        try {
+            const { id } = req.params;
+            const result = await service.getTransferById(id);
+            res.json(result);
         } catch (error) {
             next(error);
         }

@@ -63,6 +63,7 @@ class Transfer extends Model {
             foreignKey: 'transferId',
             otherKey: 'productId'
         });
+        this.hasMany(models.TransferItem, { as: 'items', foreignKey: 'transferId' });
     }
 
     static config(sequelize) {

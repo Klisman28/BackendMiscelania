@@ -40,4 +40,17 @@ const transferSchema = Joi.object({
     userId
 });
 
-module.exports = { addStockSchema, removeStockSchema, transferSchema };
+const id = Joi.number().integer();
+
+const queryTransferSchema = Joi.object({
+    pageIndex: Joi.number().integer().min(1),
+    pageSize: Joi.number().integer().min(1),
+    search: Joi.string().allow(''),
+    sort: Joi.any()
+});
+
+const getTransferSchema = Joi.object({
+    id: id.required()
+});
+
+module.exports = { addStockSchema, removeStockSchema, transferSchema, queryTransferSchema, getTransferSchema };
