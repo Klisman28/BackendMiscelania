@@ -55,6 +55,30 @@ const createProductSchema = Joi.object({
   // features: features
 });
 
+// Schema simple para crear productos con campos mínimos
+const createSimpleProductSchema = Joi.object({
+  name: name.required(),
+  sku: sku.required(),
+  price: price.required(),
+  cost: cost.required(),
+  // Campos opcionales con defaults razonables
+  utility: utility.optional().default(0),
+  stock: stock.optional().default(0),
+  stockMin: stockMin.optional().default(0),
+  description: Joi.string().allow('').optional(),
+  imageUrl: Joi.string().uri().allow('').optional(),
+  hasExpiration: Joi.boolean().optional().default(false),
+  expirationDate: Joi.when('hasExpiration', {
+    is: true,
+    then: Joi.date().iso().required(),
+    otherwise: Joi.alternatives().try(Joi.string().allow(''), Joi.valid(null)).optional()
+  }),
+  // IDs opcionales - si no se proveen, usar valores por defecto (1)
+  brandId: brandId.optional().default(1),
+  subcategoryId: subcategoryId.optional().default(1),
+  unitId: unitId.optional().default(1)
+});
+
 const updateProductSchema = Joi.object({
   name: name,
   sku: sku,
@@ -113,4 +137,4 @@ const searchProductSchema = Joi.object({
 
 const hasExpiration = Joi.boolean().default(false);
 
-module.exports = { createProductSchema, getProductSchema, queryProductSchema, updateProductSchema, searchProductSchema }
+module.exports = { createProductSchema, createSimpleProductSchema, getProductSchema, queryProductSchema, updateProductSchema, searchProductSchema }

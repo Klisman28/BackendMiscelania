@@ -217,6 +217,16 @@ class ProductsService {
 
 
     async create(data) {
+        // 1. Validar que el SKU no exista
+        if (data.sku) {
+            const existingProduct = await models.Product.findOne({
+                where: { sku: data.sku }
+            });
+            if (existingProduct) {
+                throw boom.conflict(`El SKU "${data.sku}" ya está registrado en el producto: ${existingProduct.name}`);
+            }
+        }
+
         let productData = { ...data };  // Asegúrate de inicializar correctamente los datos del producto
 
         // if (data.features && data.features.length > 0) {

@@ -53,4 +53,23 @@ const getTransferSchema = Joi.object({
     id: id.required()
 });
 
-module.exports = { addStockSchema, removeStockSchema, transferSchema, queryTransferSchema, getTransferSchema };
+const queryStockSchema = Joi.object({
+    pageIndex: Joi.number().integer().min(1).default(1),
+    page: Joi.number().integer().min(1).default(1),
+    pageSize: Joi.number().integer().min(1).max(100).default(10),
+    limit: Joi.number().integer().min(1).max(100).default(10),
+    search: Joi.string().allow(''),
+    sort: Joi.any()
+});
+
+const queryMovementSchema = Joi.object({
+    warehouseId: Joi.number().integer(),
+    productId: Joi.number().integer(),
+    type: Joi.string().valid('IN', 'OUT', 'TRANSFER_IN', 'TRANSFER_OUT', 'ADJUSTMENT_IN', 'ADJUSTMENT_OUT'),
+    dateFrom: Joi.date().iso(),
+    dateTo: Joi.date().iso(),
+    limit: Joi.number().integer().default(10),
+    offset: Joi.number().integer().default(0)
+});
+
+module.exports = { addStockSchema, removeStockSchema, transferSchema, queryTransferSchema, getTransferSchema, queryStockSchema, queryMovementSchema };

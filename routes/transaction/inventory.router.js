@@ -2,10 +2,22 @@ const express = require('express');
 
 const InventoryService = require('../../services/transaction/inventory.service');
 const validatorHandler = require('../../middlewares/validator.handler');
-const { addStockSchema, removeStockSchema, transferSchema, queryTransferSchema, getTransferSchema } = require('../../schemas/transaction/inventory.schema');
+const { addStockSchema, removeStockSchema, transferSchema, queryTransferSchema, getTransferSchema, queryMovementSchema } = require('../../schemas/transaction/inventory.schema');
 
 const router = express.Router();
 const service = new InventoryService();
+
+router.get('/movements',
+    validatorHandler(queryMovementSchema, 'query'),
+    async (req, res, next) => {
+        try {
+            const result = await service.getMovements(req.query);
+            res.json(result);
+        } catch (error) {
+            next(error);
+        }
+    }
+);
 
 router.post('/in',
     validatorHandler(addStockSchema, 'body'),

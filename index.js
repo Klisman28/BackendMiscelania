@@ -8,19 +8,21 @@ require('dotenv').config(); // Cargar las variables de entorno
 const app = express();
 const port = 3000;
 
-// Lista de orígenes permitidos sdfas
-// Se agregan url del CORS 
+// Lista de orígenes permitidos
 const allowedOrigins = [
   'http://localhost:3005',
+  'http://localhost:3006',
+  'http://127.0.0.1:3005',
   'http://localhost:3000',
+  'http://127.0.0.1:3000',
   'http://192.168.1.48:3005',
   'https://main.d7drqxc8d92jq.amplifyapp.com',
   'http://146.190.127.243:3000',
-  'http://MiscelaniaLis',  
+  'http://MiscelaniaLis',
   'https://www.miscelanialis.shop',
   'https://miscelanialis.shop',
   'https://main.d19bqybnclb2c8.amplifyapp.com'
-]; // Cambia 'http://localhost:3005' a la URL de tu frontend
+];
 
 // Opciones de configuración de CORS
 const corsOptions = {
@@ -29,7 +31,8 @@ const corsOptions = {
     if (!origin || allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
-      callback(new Error('No permitido por CORS'));
+      console.error('Bloqueado por CORS. Origen:', origin);
+      callback(new Error(`No permitido por CORS. El origen '${origin}' no está en la lista de permitidos.`));
     }
   },
   methods: 'GET,POST,PUT,DELETE', // Métodos permitidos
@@ -69,11 +72,11 @@ const sequelize = new Sequelize(process.env.DB_NAME, process.env.DB_USERNAME, pr
   dialect: 'mysql',
   dialectModule: require('mysql2'),
   port: process.env.DB_PORT,
+  logging: msg => console.log('[SQL]', msg), // Movido al nivel correcto
   dialectOptions: {
     ssl: {
       rejectUnauthorized: false, // aunque no se use SSL, esto evita errores cuando se intenta forzar
     },
-    logging: msg => console.log('[SQL]', msg)
   },
 });
 

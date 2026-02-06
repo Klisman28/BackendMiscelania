@@ -299,18 +299,98 @@ class InventoryService {
         return transfer;
     }
 
-    async getBalance(warehouseId) {
-        const balances = await models.InventoryBalance.findAll({
+    async getBalance(warehouseId, query = {}) {
+        // Extract and normalize parameters
+        const pageIndex = parseInt(query.pageIndex || query.page || 1, 10);
+        const pageSize = Math.min(parseInt(query.pageSize || query.limit || 10, 10), 100);
+        const { search, sort } = query;
+
+        // Validate pagination params
+        if (pageIndex < 1 || pageSize < 1) {
+            throw boom.badRequest('Invalid pagination parameters');
+        }
+
+        const limit = pageSize;
+        const offset = (pageIndex - 1) * pageSize;
+
+        // Build query options
+        const options = {
             where: { warehouseId },
+            limit,
+            offset,
             include: [
                 {
                     model: models.Product,
                     as: 'product',
-                    attributes: ['id', 'name', 'sku']
+                    attributes: ['id', 'name', 'sku', 'price']
                 }
             ]
-        });
-        return balances;
+        };
+
+        // Search filter
+        if (search && search.trim()) {
+            options.include[0].where = {
+                [Op.or]: [
+                    { name: { [Op.like]: `%${search}%` } },
+                    { sku: { [Op.like]: `%${search}%` } }
+                ]
+            };
+        }
+
+        // Sorting with whitelist
+        let order = [['createdAt', 'DESC']]; // Default order
+        const sortWhitelist = ['quantity', 'createdAt', 'updatedAt'];
+        const nestedSortWhitelist = {
+            'product.name': [{ model: models.Product, as: 'product' }, 'name'],
+            'product.sku': [{ model: models.Product, as: 'product' }, 'sku']
+        };
+
+        if (sort) {
+            try {
+                let sortParsed;
+                try {
+                    sortParsed = JSON.parse(sort);
+                } catch (e) {
+                    sortParsed = JSON.parse(decodeURIComponent(sort));
+                }
+
+                if (Array.isArray(sortParsed) && sortParsed.length > 0) {
+                    const validSorts = [];
+
+                    for (const sortItem of sortParsed) {
+                        if (!sortItem.key) continue;
+
+                        const direction = (sortItem.order && sortItem.order.toLowerCase() === 'asc') ? 'ASC' : 'DESC';
+
+                        // Check if it's a whitelisted simple column
+                        if (sortWhitelist.includes(sortItem.key)) {
+                            validSorts.push([sortItem.key, direction]);
+                        }
+                        // Check if it's a whitelisted nested column
+                        else if (nestedSortWhitelist[sortItem.key]) {
+                            validSorts.push([...nestedSortWhitelist[sortItem.key], direction]);
+                        }
+                    }
+
+                    if (validSorts.length > 0) {
+                        order = validSorts;
+                    }
+                }
+            } catch (e) {
+                console.error('Sort parse error:', e);
+                // Use default order on error
+            }
+        }
+
+        options.order = order;
+
+        // Execute query with count
+        const { count, rows } = await models.InventoryBalance.findAndCountAll(options);
+
+        return {
+            data: rows,
+            total: count
+        };
     }
 
     async getMovements(query) {
@@ -324,6 +404,22 @@ class InventoryService {
         if (warehouseId) options.where.warehouseId = warehouseId;
         if (productId) options.where.productId = productId;
         if (type) options.where.type = type;
+
+        if (query.dateFrom || query.dateTo) {
+            options.where.createdAt = {};
+            if (query.dateFrom) {
+                options.where.createdAt[Op.gte] = new Date(query.dateFrom);
+            }
+            if (query.dateTo) {
+                let endDate = new Date(query.dateTo);
+                // Adjust to end of day if it's just a date string, or trust the input
+                // Assuming simple YYYY-MM-DD, we might want to include the whole day
+                // If it's ISO, we use it as is.
+                // For simplicity, let's just use GTE/LTE
+                options.where.createdAt[Op.lte] = endDate;
+            }
+        }
+
         if (limit) options.limit = limit;
         if (offset) options.offset = offset;
 

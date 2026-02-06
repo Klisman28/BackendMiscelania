@@ -3,7 +3,7 @@ const express = require('express');
 const WarehouseService = require('../../services/organization/warehouses.service');
 const validatorHandler = require('../../middlewares/validator.handler');
 const { createWarehouseSchema, updateWarehouseSchema, getWarehouseSchema } = require('../../schemas/organization/warehouse.schema');
-const { addStockSchema } = require('../../schemas/transaction/inventory.schema'); // Reuse if needed or separate
+const { addStockSchema, queryStockSchema } = require('../../schemas/transaction/inventory.schema'); // Reuse if needed or separate
 
 const router = express.Router();
 const service = new WarehouseService();
@@ -77,10 +77,15 @@ router.delete('/:id',
 // Inventory per Warehouse
 router.get('/:id/stock',
     validatorHandler(getWarehouseSchema, 'params'),
+    validatorHandler(queryStockSchema, 'query'),
     async (req, res, next) => {
         try {
             const { id } = req.params;
-            const stock = await inventoryService.getBalance(id);
+
+            // Verify warehouse exists
+            await service.findOne(id);
+
+            const stock = await inventoryService.getBalance(id, req.query);
             res.json(stock);
         } catch (error) {
             next(error);

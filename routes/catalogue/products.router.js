@@ -1,8 +1,10 @@
 const express = require('express');
+const boom = require('@hapi/boom');
 const ProductsService = require('../../services/catalogue/products.service');
 const validatorHandler = require('../../middlewares/validator.handler');
 const {
     createProductSchema,
+    createSimpleProductSchema,
     getProductSchema,
     queryProductSchema,
     updateProductSchema,
@@ -62,11 +64,47 @@ router.get('/:id',
 );
 
 router.post('/',
-    validatorHandler(createProductSchema, 'body'),
     async (req, res, next) => {
         try {
             const body = req.body;
-            const product = await service.create(body);
+
+            // Intentar validación: primero schema simple, si falla intentar completo
+            // Verificar si contiene campos del schema completo (brandId, subcategoryId, etc.)
+            const hasCompleteFields = body.brandId || body.subcategoryId || body.unitId ||
+                body.hasOwnProperty('stock') || body.hasOwnProperty('utility');
+
+            let validationError = null;
+            let validatedBody = null;
+
+            if (!hasCompleteFields) {
+                // Intentar con schema simple primero
+                const simpleValidation = createSimpleProductSchema.validate(body, { abortEarly: false });
+                if (simpleValidation.error) {
+                    // Si falla el simple, intentar con el completo
+                    const completeValidation = createProductSchema.validate(body, { abortEarly: false });
+                    if (completeValidation.error) {
+                        validationError = completeValidation.error;
+                    } else {
+                        validatedBody = completeValidation.value;
+                    }
+                } else {
+                    validatedBody = simpleValidation.value;
+                }
+            } else {
+                // Usar schema completo directamente
+                const completeValidation = createProductSchema.validate(body, { abortEarly: false });
+                if (completeValidation.error) {
+                    validationError = completeValidation.error;
+                } else {
+                    validatedBody = completeValidation.value;
+                }
+            }
+
+            if (validationError) {
+                return next(boom.badRequest(validationError.message));
+            }
+
+            const product = await service.create(validatedBody);
             success(res, product, 'Producto registrado con éxito', 201);
         } catch (error) {
             next(error);
