@@ -3,6 +3,7 @@ const CustomersService = require('../../services/client/customers.service');
 const validatorHandler = require('../../middlewares/validator.handler');
 const {
     createCustomerSchema,
+    updateCustomerSchema,
     getCustomerSchema,
     queryCustomerSchema
 } = require('../../schemas/client/customers.schema');
@@ -51,7 +52,7 @@ router.post('/',
 
 router.put('/:id',
     validatorHandler(getCustomerSchema, 'params'),
-    validatorHandler(createCustomerSchema, 'body'),
+    validatorHandler(updateCustomerSchema, 'body'),
     async (req, res, next) => {
         try {
             const { id } = req.params;

@@ -79,6 +79,32 @@ const createSimpleProductSchema = Joi.object({
   unitId: unitId.optional().default(1)
 });
 
+// Schema para alta rápida de productos (Opción B)
+// Solo requiere: name, sku, cost, price, subcategoryId, unitId
+// brandId es opcional (se asigna/crea "GENÉRICA" si no viene)
+// utility, stock, stockMin son opcionales (defaults en service)
+const createQuickProductSchema = Joi.object({
+  name: name.required(),
+  sku: sku.required(),
+  cost: cost.required(),
+  price: price.required(),
+  subcategoryId: subcategoryId.required(),
+  unitId: unitId.required(),
+  // Campos opcionales
+  brandId: brandId.optional(),
+  utility: utility.optional(),
+  stock: stock.optional(),
+  stockMin: stockMin.optional(),
+  description: Joi.string().allow('').optional(),
+  imageUrl: Joi.string().uri().allow('').optional(),
+  hasExpiration: Joi.boolean().optional(),
+  expirationDate: Joi.when('hasExpiration', {
+    is: true,
+    then: Joi.date().iso().required(),
+    otherwise: Joi.alternatives().try(Joi.string().allow(''), Joi.valid(null)).optional()
+  })
+});
+
 const updateProductSchema = Joi.object({
   name: name,
   sku: sku,
@@ -137,4 +163,4 @@ const searchProductSchema = Joi.object({
 
 const hasExpiration = Joi.boolean().default(false);
 
-module.exports = { createProductSchema, createSimpleProductSchema, getProductSchema, queryProductSchema, updateProductSchema, searchProductSchema }
+module.exports = { createProductSchema, createSimpleProductSchema, createQuickProductSchema, getProductSchema, queryProductSchema, updateProductSchema, searchProductSchema }

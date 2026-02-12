@@ -4,6 +4,7 @@ const apiRouter = require('./routes/api');
 const { logErrors, errorHandler, boomErrorHandler, ormErrorHandler } = require('./middlewares/error.handler');
 const { Sequelize } = require('sequelize'); // Asegúrate de que estás importando Sequelize
 require('dotenv').config(); // Cargar las variables de entorno
+const morgan = require('morgan'); // Middleware de logging
 
 const app = express();
 const port = 3000;
@@ -44,6 +45,7 @@ const corsOptions = {
 app.use(cors(corsOptions));
 
 app.use(express.json());
+app.use(morgan('dev')); // Logging de peticiones en consola
 
 // Autenticación
 require('./utils/auth');

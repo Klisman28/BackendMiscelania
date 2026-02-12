@@ -5,6 +5,7 @@ const validatorHandler = require('../../middlewares/validator.handler');
 const {
     createProductSchema,
     createSimpleProductSchema,
+    createQuickProductSchema,
     getProductSchema,
     queryProductSchema,
     updateProductSchema,
@@ -68,30 +69,22 @@ router.post('/',
         try {
             const body = req.body;
 
-            // Intentar validación: primero schema simple, si falla intentar completo
-            // Verificar si contiene campos del schema completo (brandId, subcategoryId, etc.)
-            const hasCompleteFields = body.brandId || body.subcategoryId || body.unitId ||
-                body.hasOwnProperty('stock') || body.hasOwnProperty('utility');
+            // Estrategia de validación:
+            // 1. Intentar con quick schema (solo requiere: name, sku, cost, price, subcategoryId, unitId)
+            // 2. Si falla, intentar con schema completo
+            // 3. Si ambos fallan, retornar error del schema completo
 
             let validationError = null;
             let validatedBody = null;
+            let isQuickMode = false;
 
-            if (!hasCompleteFields) {
-                // Intentar con schema simple primero
-                const simpleValidation = createSimpleProductSchema.validate(body, { abortEarly: false });
-                if (simpleValidation.error) {
-                    // Si falla el simple, intentar con el completo
-                    const completeValidation = createProductSchema.validate(body, { abortEarly: false });
-                    if (completeValidation.error) {
-                        validationError = completeValidation.error;
-                    } else {
-                        validatedBody = completeValidation.value;
-                    }
-                } else {
-                    validatedBody = simpleValidation.value;
-                }
+            // Intentar primero con quick schema
+            const quickValidation = createQuickProductSchema.validate(body, { abortEarly: false });
+            if (!quickValidation.error) {
+                validatedBody = quickValidation.value;
+                isQuickMode = true;
             } else {
-                // Usar schema completo directamente
+                // Si falla quick, intentar con completo
                 const completeValidation = createProductSchema.validate(body, { abortEarly: false });
                 if (completeValidation.error) {
                     validationError = completeValidation.error;
@@ -104,7 +97,8 @@ router.post('/',
                 return next(boom.badRequest(validationError.message));
             }
 
-            const product = await service.create(validatedBody);
+            // Pasar el modo al service para que aplique defaults apropiados
+            const product = await service.create(validatedBody, isQuickMode);
             success(res, product, 'Producto registrado con éxito', 201);
         } catch (error) {
             next(error);

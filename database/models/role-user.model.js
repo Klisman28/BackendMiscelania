@@ -5,7 +5,7 @@ const { USER_TABLE } = require('./user.model');
 
 const ROLE_USER_TABLE = 'roles_users';
 
-const RoleUserSchema =  {
+const RoleUserSchema = {
   id: {
     allowNull: false,
     autoIncrement: true,
@@ -14,10 +14,10 @@ const RoleUserSchema =  {
   },
   roleId: {
     field: 'role_id',
-    allowNull: true,
+    allowNull: false,
     type: DataTypes.INTEGER,
     references: {
-      model: ROLE_TABLE, // 'roles'
+      model: ROLE_TABLE,
       key: 'id'
     },
     onUpdate: 'CASCADE',
@@ -25,24 +25,50 @@ const RoleUserSchema =  {
   },
   userId: {
     field: 'user_id',
-    allowNull: true,
+    allowNull: false,
     type: DataTypes.INTEGER,
     references: {
-      model: USER_TABLE, // 'users'
+      model: USER_TABLE,
       key: 'id'
     },
     onUpdate: 'CASCADE',
     onDelete: 'CASCADE'
+  },
+  createdAt: {
+    allowNull: false,
+    type: DataTypes.DATE,
+    field: 'created_at',
+    defaultValue: DataTypes.NOW
+  },
+  updatedAt: {
+    allowNull: false,
+    type: DataTypes.DATE,
+    field: 'updated_at',
+    defaultValue: DataTypes.NOW
   }
 }
 
 class RoleUser extends Model {
+  static associate(models) {
+    // Many-to-one: RoleUser -> Role
+    this.belongsTo(models.Role, {
+      as: 'role',
+      foreignKey: 'roleId'
+    });
+
+    // Many-to-one: RoleUser -> User
+    this.belongsTo(models.User, {
+      as: 'user',
+      foreignKey: 'userId'
+    });
+  }
+
   static config(sequelize) {
     return {
       sequelize,
       tableName: ROLE_USER_TABLE,
       modelName: 'RoleUser',
-      timestamps: false
+      timestamps: true
     }
   }
 }

@@ -26,12 +26,12 @@ const UserSchema = {
       const value = this.getDataValue('status');
       let statusText = '';
       if (value) {
-          statusText = 'Activo';
+        statusText = 'Activo';
       } else if (!value) {
-          statusText = 'Inactivo'
+        statusText = 'Inactivo'
       }
       return statusText;
-  }
+    }
   },
   userableId: {
     allowNull: true,
@@ -57,6 +57,7 @@ const UserSchema = {
 
 class User extends Model {
   static associate(models) {
+    // Many-to-many: User <-> Role through RoleUser
     this.belongsToMany(models.Role, {
       as: 'roles',
       through: models.RoleUser,
@@ -64,6 +65,13 @@ class User extends Model {
       otherKey: 'roleId'
     });
 
+    // One-to-many: User -> RoleUser (optional, útil para queries directas)
+    this.hasMany(models.RoleUser, {
+      as: 'userRoles',
+      foreignKey: 'userId'
+    });
+
+    // Polymorphic association: User -> Employee
     this.belongsTo(models.Employee, {
       as: 'employee',
       foreignKey: "userableId",

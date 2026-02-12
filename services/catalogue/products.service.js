@@ -23,21 +23,7 @@ class ProductsService {
                     model: models.Unit,
                     as: 'unit',
                     attributes: ['symbol']
-                },
-                // {
-                //     model: models.Feature,
-                //     as: 'features',
-                //     attributes: ['value'],
-                //     include: [{
-                //         model: models.Option,
-                //         as: 'option',
-                //         attributes: ['value'],
-                //     }, {
-                //         model: models.Property,
-                //         as: 'property',
-                //         attributes: ['name'],
-                //     }]
-                // }
+                }
             ],
             order: [(sortColumn) ? [sortColumn, sortDirection] : ['id', 'DESC']]
         }
@@ -106,49 +92,27 @@ class ProductsService {
 
 
     addFilter(filterField, filterType, filterValue) {
+        // Filtros numéricos
+        const numericFloatFields = ['cost', 'price'];
+        const numericIntFields = ['stockMin', 'stock'];
+
+        if (filterType !== 'like' && !isNaN(filterValue)) {
+            if (numericFloatFields.includes(filterField)) {
+                return { [Op[filterType]]: parseFloat(filterValue) };
+            }
+            if (numericIntFields.includes(filterField)) {
+                return { [Op[filterType]]: parseInt(filterValue) };
+            }
+        }
+
         switch (filterField) {
-            case 'cost':
-                if (filterType != "like" && !isNaN(filterValue)) {
-                    return {
-                        [Op[filterType]]: parseFloat(filterValue)
-                    }
-                }
-                return null;
-            case 'price':
-                if (filterType != "like" && !isNaN(filterValue)) {
-                    return {
-                        [Op[filterType]]: parseFloat(filterValue)
-                    }
-                }
-                return null;
-            case 'stockMin':
-                if (filterType != "like" && !isNaN(filterValue)) {
-                    return {
-                        [Op[filterType]]: parseInt(filterValue)
-                    }
-                }
-                return null;
             case 'expirationDate':
-                // soporta eq, lt, gt, lte, gte, between…
-                return { [Op[filterType]]: filterValue };   // filterValue = '2025‑05‑01'
-            case 'stock':
-                if (filterType != "like" && !isNaN(filterValue)) {
-                    return {
-                        [Op[filterType]]: parseInt(filterValue)
-                    }
-                }
-                return null;
+                return { [Op[filterType]]: filterValue };
             case 'status':
-                if (filterType == 'like') {
-                    if ((filterValue.toLowerCase()) === 'activo') {
-                        return {
-                            [Op.eq]: 1
-                        }
-                    } else if ((filterValue.toLowerCase()) === 'inactivo') {
-                        return {
-                            [Op.eq]: 2
-                        }
-                    }
+                if (filterType === 'like') {
+                    const value = filterValue.toLowerCase();
+                    if (value === 'activo') return { [Op.eq]: 1 };
+                    if (value === 'inactivo') return { [Op.eq]: 2 };
                 }
                 return null;
             default:
@@ -176,21 +140,7 @@ class ProductsService {
                     model: models.Unit,
                     as: 'unit',
                     attributes: ['symbol']
-                },
-                // {
-                //     model: models.Feature,
-                //     as: 'features',
-                //     attributes: ['value'],
-                //     include: [{
-                //         model: models.Option,
-                //         as: 'option',
-                //         attributes: ['value'],
-                //     }, {
-                //         model: models.Property,
-                //         as: 'property',
-                //         attributes: ['name'],
-                //     }]
-                // }
+                }
             ],
             order: [['name', 'DESC']]
         }
@@ -216,7 +166,7 @@ class ProductsService {
     }
 
 
-    async create(data) {
+    async create(data, isQuickMode = false) {
         // 1. Validar que el SKU no exista
         if (data.sku) {
             const existingProduct = await models.Product.findOne({
@@ -227,30 +177,63 @@ class ProductsService {
             }
         }
 
-        let productData = { ...data };  // Asegúrate de inicializar correctamente los datos del producto
+        const productData = { ...data };
 
-        // if (data.features && data.features.length > 0) {
-        //     const features = data.features.map((feature) => {
-        //         return {
-        //             ...feature,
-        //             productId: product.id
-        //         }
-        //     });
-        //     await models.Feature.bulkCreate(features);
-        // }
-        // Asegurarse de que expirationDate solo se guarde si hasExpiration es true
+        // Si es modo rápido, aplicar defaults
+        if (isQuickMode) {
+            // 1. Si no viene brandId, buscar/crear marca "GENÉRICA"
+            if (!productData.brandId) {
+                let genericBrand = await models.Brand.findOne({
+                    where: { name: 'GENÉRICA' }
+                });
+
+                if (!genericBrand) {
+                    // Crear marca genérica una sola vez
+                    genericBrand = await models.Brand.create({
+                        name: 'GENÉRICA',
+                        code: 'GEN'
+                    });
+                }
+
+                productData.brandId = genericBrand.id;
+            }
+
+            // 2. Si no viene utility, calcular como diferencia: price - cost
+            if (productData.utility === undefined || productData.utility === null) {
+                productData.utility = productData.price - productData.cost;
+            }
+
+            // 3. Si no viene stock, default a 0
+            if (productData.stock === undefined || productData.stock === null) {
+                productData.stock = 0;
+            }
+
+            // 4. Si no viene stockMin, default a 0
+            if (productData.stockMin === undefined || productData.stockMin === null) {
+                productData.stockMin = 0;
+            }
+        }
+
+        // Lógica de fecha de expiración simplificada
         if (data.hasExpiration && data.expirationDate) {
             productData.expirationDate = data.expirationDate;
         } else {
             productData.expirationDate = null;
         }
-        if (data.description) {
-            productData.description = data.description;
-        }
 
         // Crear el producto en la base de datos
         const product = await models.Product.create(productData);
-        return product;
+
+        // Retornar producto con includes para mostrar brand, subcategory, unit
+        const createdProduct = await models.Product.findByPk(product.id, {
+            include: [
+                { model: models.Brand, as: 'brand', attributes: ['id', 'name'] },
+                { model: models.Subcategory, as: 'subcategory', attributes: ['id', 'name', 'categoryId'] },
+                { model: models.Unit, as: 'unit', attributes: ['id', 'symbol'] }
+            ]
+        });
+
+        return createdProduct;
     }
 
     async findOne(id) {
@@ -263,30 +246,19 @@ class ProductsService {
 
     async update(id, changes) {
         let product = await this.findOne(id);
+        const updates = { ...changes };
+
         // Asegurarse de que expirationDate solo se guarde si hasExpiration es true
-        if (changes.hasExpiration && changes.expirationDate) {
-            changes.expirationDate = changes.expirationDate;
-        } else {
-            changes.expirationDate = '';
+        if (updates.hasExpiration === true && updates.expirationDate) {
+            // Se mantiene la fecha enviada
+        } else if (updates.hasExpiration === false) {
+            updates.expirationDate = null;
         }
-        if (changes.description) {
-            changes.description = changes.description;
-        }
-        product = await product.update(changes);
-        // await models.Feature.destroy({
-        //     where: {
-        //         productId: id
-        //     }
-        // });
-        // if (changes.features && changes.features.length > 0) {
-        //     const features = changes.features.map((feature) => {
-        //         return {
-        //             ...feature,
-        //             productId: product.id
-        //         }
-        //     });
-        //     await models.Feature.bulkCreate(features);
-        // }
+
+        // Si hay lógica condicional específica para 'description', se mantiene simple,
+        // pero update() de Sequelize ya ignora campos undefined si no se pasan.
+
+        product = await product.update(updates);
         return product;
     }
 

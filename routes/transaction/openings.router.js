@@ -11,6 +11,12 @@ const { success } = require('../response');
 
 const router = express.Router();
 const service = new OpeningsService();
+const CashMovementService = require('../../services/transaction/cash-movement.service');
+const movementService = new CashMovementService();
+const {
+    createCashMovementSchema,
+    queryCashMovementSchema
+} = require('../../schemas/transaction/cash-movement.schema');
 
 router.get('/',
     validatorHandler(queryOpeningSchema, 'query'),
@@ -70,7 +76,7 @@ router.put('/:id',
         try {
             const { id } = req.params;
             console.log(req.params);
-            
+
             const body = req.body;
             const opening = await service.update(id, body);
             success(res, opening, 'Apertura actualizada con éxito');
@@ -87,6 +93,50 @@ router.delete('/:id',
             const { id } = req.params;
             await service.delete(id);
             success(res, id, 'Apertura eliminada con éxito', 201);
+        } catch (error) {
+            next(error);
+        }
+    }
+);
+
+
+router.get('/:id/movements',
+    validatorHandler(getOpeningSchema, 'params'),
+    validatorHandler(queryCashMovementSchema, 'query'),
+    async (req, res, next) => {
+        try {
+            const { id } = req.params;
+            const movements = await movementService.find(id, req.query);
+            success(res, movements);
+        } catch (error) {
+            next(error);
+        }
+    }
+);
+
+router.post('/:id/movements',
+    validatorHandler(getOpeningSchema, 'params'),
+    validatorHandler(createCashMovementSchema, 'body'),
+    async (req, res, next) => {
+        try {
+            const { id } = req.params;
+            const { sub } = req.user;
+            const body = req.body;
+            const movement = await movementService.create(id, body, sub);
+            success(res, movement, 'Movimiento registrado', 201);
+        } catch (error) {
+            next(error);
+        }
+    }
+);
+
+router.get('/:id/summary',
+    validatorHandler(getOpeningSchema, 'params'),
+    async (req, res, next) => {
+        try {
+            const { id } = req.params;
+            const summary = await movementService.getSummary(id);
+            success(res, summary);
         } catch (error) {
             next(error);
         }

@@ -28,6 +28,7 @@ const { InventoryBalance, InventoryBalanceSchema } = require('./inventory-balanc
 const { InventoryMovement, InventoryMovementSchema } = require('./inventory-movement.model');
 const { Transfer, TransferSchema } = require('./transfer.model');
 const { TransferItem, TransferItemSchema } = require('./transfer-item.model');
+const { CashMovement, CashMovementSchema } = require('./cash-movement.model');
 
 function setupModels(sequelize) {
     // Inicializations
@@ -61,6 +62,7 @@ function setupModels(sequelize) {
     InventoryMovement.init(InventoryMovementSchema, InventoryMovement.config(sequelize));
     Transfer.init(TransferSchema, Transfer.config(sequelize));
     TransferItem.init(TransferItemSchema, TransferItem.config(sequelize));
+    CashMovement.init(CashMovementSchema, CashMovement.config(sequelize));
 
 
 
@@ -68,6 +70,8 @@ function setupModels(sequelize) {
     Category.associate(sequelize.models);
     Subcategory.associate(sequelize.models);
     User.associate(sequelize.models);
+    Role.associate(sequelize.models);
+    RoleUser.associate(sequelize.models);
     Product.associate(sequelize.models);
     Property.associate(sequelize.models);
     Option.associate(sequelize.models);
@@ -81,6 +85,7 @@ function setupModels(sequelize) {
     InventoryMovement.associate(sequelize.models);
     Transfer.associate(sequelize.models);
     TransferItem.associate(sequelize.models);
+    CashMovement.associate(sequelize.models);
 
     //slugs
     Brand.slugify(sequelize.models);

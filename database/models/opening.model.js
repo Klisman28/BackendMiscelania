@@ -13,11 +13,11 @@ const OpeningSchema = {
     },
     initBalance: {
         allowNull: true,
-        type: DataTypes.DECIMAL(8,2),
+        type: DataTypes.DECIMAL(8, 2),
         field: 'init_balance'
     },
     saleBalance: {
-        type: DataTypes.DECIMAL(8,2),
+        type: DataTypes.DECIMAL(8, 2),
         field: 'sale_balance'
     },
     startDatetime: {
@@ -67,9 +67,14 @@ class Opening extends Model {
         this.belongsTo(models.Employee, {
             as: 'employee'
         });
-        
+
         this.hasMany(models.Sale, {
             as: 'sales',
+            foreignKey: 'openingId'
+        });
+
+        this.hasMany(models.CashMovement, {
+            as: 'movements',
             foreignKey: 'openingId'
         });
     }
