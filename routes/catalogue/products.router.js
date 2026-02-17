@@ -2,6 +2,7 @@ const express = require('express');
 const boom = require('@hapi/boom');
 const ProductsService = require('../../services/catalogue/products.service');
 const validatorHandler = require('../../middlewares/validator.handler');
+const upload = require('../../middlewares/upload.handler');
 const {
     createProductSchema,
     createSimpleProductSchema,
@@ -65,9 +66,11 @@ router.get('/:id',
 );
 
 router.post('/',
+    upload.single('image'),
     async (req, res, next) => {
         try {
             const body = req.body;
+            const file = req.file;
 
             // Estrategia de validación:
             // 1. Intentar con quick schema (solo requiere: name, sku, cost, price, subcategoryId, unitId)
@@ -94,11 +97,14 @@ router.post('/',
             }
 
             if (validationError) {
+                // Si hay error de validación, eliminar el archivo subido si existe (aunque estemos en memoria aquí, para consistencia o si cambiamos a disco)
+                // Con memoryStorage no hace falta borrar nada del disco
                 return next(boom.badRequest(validationError.message));
             }
 
             // Pasar el modo al service para que aplique defaults apropiados
-            const product = await service.create(validatedBody, isQuickMode);
+            // Pasar también el archivo
+            const product = await service.create(validatedBody, isQuickMode, file);
             success(res, product, 'Producto registrado con éxito', 201);
         } catch (error) {
             next(error);
@@ -107,13 +113,16 @@ router.post('/',
 );
 
 router.put('/:id',
+    upload.single('image'),
     validatorHandler(getProductSchema, 'params'),
     validatorHandler(updateProductSchema, 'body'),
     async (req, res, next) => {
         try {
             const { id } = req.params;
             const body = req.body;
-            const product = await service.update(id, body);
+            const file = req.file;
+
+            const product = await service.update(id, body, file);
             success(res, product, 'Producto actualizado con éxito', 201);
         } catch (error) {
             next(error);

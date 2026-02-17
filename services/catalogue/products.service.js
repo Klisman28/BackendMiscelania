@@ -2,7 +2,10 @@ const boom = require('@hapi/boom');
 const { Op } = require('sequelize');
 const { models } = require('../../libs/sequelize');
 
+const { processImage, deleteFile } = require('../../utils/file');
+
 class ProductsService {
+    // ... existing find methods ...
     async find(query) {
         const { limit, offset, search, sortColumn, sortDirection, filterField, filterType, filterValue } = query;
 
@@ -72,6 +75,7 @@ class ProductsService {
     }
 
     async findExpiringSoon() {
+        // ... (keep as is) ...
         const products = await models.Product.findAll({
             where: {
                 expirationDate: {
@@ -92,6 +96,7 @@ class ProductsService {
 
 
     addFilter(filterField, filterType, filterValue) {
+        // ... (keep as is) ...
         // Filtros numéricos
         const numericFloatFields = ['cost', 'price'];
         const numericIntFields = ['stockMin', 'stock'];
@@ -121,6 +126,7 @@ class ProductsService {
     }
 
     async search(query) {
+        // ... (keep as is) ...
         const { limit, offset, search } = query;
 
         const options = {
@@ -166,7 +172,7 @@ class ProductsService {
     }
 
 
-    async create(data, isQuickMode = false) {
+    async create(data, isQuickMode = false, file = null) {
         // 1. Validar que el SKU no exista
         if (data.sku) {
             const existingProduct = await models.Product.findOne({
@@ -221,6 +227,13 @@ class ProductsService {
             productData.expirationDate = null;
         }
 
+        // Procesar imagen si existe
+        if (file) {
+            const fileName = await processImage(file.buffer);
+            const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
+            productData.imageUrl = `${baseUrl}/uploads/products/${fileName}`;
+        }
+
         // Crear el producto en la base de datos
         const product = await models.Product.create(productData);
 
@@ -244,7 +257,7 @@ class ProductsService {
         return product;
     }
 
-    async update(id, changes) {
+    async update(id, changes, file = null) {
         let product = await this.findOne(id);
         const updates = { ...changes };
 
@@ -255,8 +268,18 @@ class ProductsService {
             updates.expirationDate = null;
         }
 
-        // Si hay lógica condicional específica para 'description', se mantiene simple,
-        // pero update() de Sequelize ya ignora campos undefined si no se pasan.
+        // Procesar imagen si existe
+        if (file) {
+            // Si hay una imagen anterior, borrarla
+            if (product.imageUrl) {
+                const oldFileName = product.imageUrl.split('/').pop();
+                deleteFile(oldFileName);
+            }
+
+            const fileName = await processImage(file.buffer);
+            const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
+            updates.imageUrl = `${baseUrl}/uploads/products/${fileName}`;
+        }
 
         product = await product.update(updates);
         return product;
@@ -264,6 +287,13 @@ class ProductsService {
 
     async delete(id) {
         const product = await this.findOne(id);
+
+        // Si hay una imagen, borrarla
+        if (product.imageUrl) {
+            const fileName = product.imageUrl.split('/').pop();
+            deleteFile(fileName);
+        }
+
         await product.destroy();
         return { id };
     }

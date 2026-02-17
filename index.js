@@ -1,9 +1,10 @@
 const express = require('express');
 const cors = require('cors');
 const apiRouter = require('./routes/api');
-const { logErrors, errorHandler, boomErrorHandler, ormErrorHandler } = require('./middlewares/error.handler');
+const { logErrors, errorHandler, boomErrorHandler, ormErrorHandler, multerErrorHandler } = require('./middlewares/error.handler');
 const { Sequelize } = require('sequelize'); // Asegúrate de que estás importando Sequelize
 require('dotenv').config(); // Cargar las variables de entorno
+const path = require('path');
 const morgan = require('morgan'); // Middleware de logging
 
 const app = express();
@@ -46,6 +47,7 @@ app.use(cors(corsOptions));
 
 app.use(express.json());
 app.use(morgan('dev')); // Logging de peticiones en consola
+app.use('/uploads', express.static(path.join(__dirname, 'public/uploads'))); // Servir archivos estáticos
 
 // Autenticación
 require('./utils/auth');
@@ -64,6 +66,7 @@ apiRouter(app);
 
 // Manejo de errores
 app.use(logErrors);
+app.use(multerErrorHandler);
 app.use(ormErrorHandler);
 app.use(boomErrorHandler);
 app.use(errorHandler);
