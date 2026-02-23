@@ -1,15 +1,15 @@
 const { Op, QueryTypes } = require('sequelize');
 const { models } = require('../../libs/sequelize');
-const { sequelize } = require('../../libs/sequelize'); // Need sequelize instance for raw queries
+const { sequelize } = require('../../libs/sequelize');
 
 class ReportService {
 
   // --- SALES ---
 
-  async getSalesSummary(query) {
+  async getSalesSummary(query, companyId) {
     const { startDate, endDate, warehouseId, docType } = query;
-    const replacements = { startDate, endDate };
-    let whereClause = "WHERE s.date_issue BETWEEN :startDate AND :endDate AND s.status = 1"; // Status 1 = Completed/Active (Assumed)
+    const replacements = { startDate, endDate, companyId };
+    let whereClause = "WHERE s.date_issue BETWEEN :startDate AND :endDate AND s.status = 1 AND s.company_id = :companyId";
 
     if (warehouseId) {
       whereClause += " AND s.warehouse_id = :warehouseId";
@@ -34,10 +34,10 @@ class ReportService {
     return result;
   }
 
-  async getSalesByDay(query) {
+  async getSalesByDay(query, companyId) {
     const { startDate, endDate, warehouseId, docType } = query;
-    const replacements = { startDate, endDate };
-    let whereClause = "WHERE s.date_issue BETWEEN :startDate AND :endDate AND s.status = 1";
+    const replacements = { startDate, endDate, companyId };
+    let whereClause = "WHERE s.date_issue BETWEEN :startDate AND :endDate AND s.status = 1 AND s.company_id = :companyId";
 
     if (warehouseId) {
       whereClause += " AND s.warehouse_id = :warehouseId";
@@ -63,11 +63,11 @@ class ReportService {
     return results;
   }
 
-  async getTopProducts(query) {
+  async getTopProducts(query, companyId) {
     const { startDate, endDate, warehouseId, docType, limit = 10, offset = 0 } = query;
-    const replacements = { startDate: startDate, endDate: endDate, limit: parseInt(limit), offset: parseInt(offset) };
+    const replacements = { startDate, endDate, companyId, limit: parseInt(limit), offset: parseInt(offset) };
 
-    let whereClause = "WHERE s.date_issue BETWEEN :startDate AND :endDate AND s.status = 1";
+    let whereClause = "WHERE s.date_issue BETWEEN :startDate AND :endDate AND s.status = 1 AND s.company_id = :companyId";
 
     if (warehouseId) {
       whereClause += " AND s.warehouse_id = :warehouseId";
@@ -78,7 +78,6 @@ class ReportService {
       replacements.docType = docType;
     }
 
-    // Note: Assuming 'products_sales' table and 'unit_price' field based on inspection
     const sql = `
       SELECT 
         p.name as productName,
@@ -97,12 +96,10 @@ class ReportService {
     return results;
   }
 
-  async getTopClients(query) {
+  async getTopClients(query, companyId) {
     const { startDate, endDate, limit = 10, offset = 0 } = query;
-    const replacements = { startDate: startDate, endDate: endDate, limit: parseInt(limit), offset: parseInt(offset) };
+    const replacements = { startDate, endDate, companyId, limit: parseInt(limit), offset: parseInt(offset) };
 
-    // Only looking at Customers (not Enterprises) for simplicity, or we can union.
-    // Assuming 'customers' table.
     const sql = `
       SELECT 
         COALESCE(c.fullname, CONCAT(c.first_name, ' ', c.last_name), c.name) as clientName,
@@ -113,6 +110,7 @@ class ReportService {
       WHERE s.saleable_type = 'customers'
       AND s.date_issue BETWEEN :startDate AND :endDate
       AND s.status = 1
+      AND s.company_id = :companyId
       GROUP BY c.id, c.fullname, c.first_name, c.last_name, c.name
       ORDER BY total DESC
       LIMIT :limit OFFSET :offset
@@ -124,9 +122,9 @@ class ReportService {
 
   // --- PURCHASES ---
 
-  async getPurchasesSummary(query) {
+  async getPurchasesSummary(query, companyId) {
     const { startDate, endDate } = query;
-    const replacements = { startDate, endDate };
+    const replacements = { startDate, endDate, companyId };
 
     const sql = `
       SELECT 
@@ -135,15 +133,16 @@ class ReportService {
         COALESCE(AVG(p.total), 0) as averagePurchase
       FROM purchases p
       WHERE p.date_issue BETWEEN :startDate AND :endDate
+      AND p.company_id = :companyId
     `;
 
     const [result] = await sequelize.query(sql, { replacements, type: QueryTypes.SELECT });
     return result;
   }
 
-  async getPurchasesByDay(query) {
+  async getPurchasesByDay(query, companyId) {
     const { startDate, endDate } = query;
-    const replacements = { startDate, endDate };
+    const replacements = { startDate, endDate, companyId };
 
     const sql = `
       SELECT 
@@ -152,6 +151,7 @@ class ReportService {
         COUNT(p.id) as count
       FROM purchases p
       WHERE p.date_issue BETWEEN :startDate AND :endDate
+      AND p.company_id = :companyId
       GROUP BY p.date_issue
       ORDER BY p.date_issue ASC
     `;
@@ -160,9 +160,9 @@ class ReportService {
     return results;
   }
 
-  async getTopSuppliers(query) {
+  async getTopSuppliers(query, companyId) {
     const { startDate, endDate, limit = 10, offset = 0 } = query;
-    const replacements = { startDate, endDate, limit: parseInt(limit), offset: parseInt(offset) };
+    const replacements = { startDate, endDate, companyId, limit: parseInt(limit), offset: parseInt(offset) };
 
     const sql = `
       SELECT 
@@ -172,6 +172,7 @@ class ReportService {
       FROM purchases p
       JOIN suppliers sup ON p.supplier_id = sup.id
       WHERE p.date_issue BETWEEN :startDate AND :endDate
+      AND p.company_id = :companyId
       GROUP BY sup.id, sup.name
       ORDER BY total DESC
       LIMIT :limit OFFSET :offset
@@ -183,9 +184,9 @@ class ReportService {
 
   // --- INVENTORY ---
 
-  async getLowStock(query) {
+  async getLowStock(query, companyId) {
     const { limit = 50, offset = 0 } = query;
-    const replacements = { limit: parseInt(limit), offset: parseInt(offset) };
+    const replacements = { companyId, limit: parseInt(limit), offset: parseInt(offset) };
 
     const sql = `
       SELECT 
@@ -200,6 +201,7 @@ class ReportService {
         END as status
       FROM products p
       WHERE p.stock <= p.stock_min
+      AND p.company_id = :companyId
       ORDER BY p.stock ASC
       LIMIT :limit OFFSET :offset
     `;
@@ -208,36 +210,37 @@ class ReportService {
     return results;
   }
 
-  async getInventoryValuation() {
+  async getInventoryValuation(query, companyId) {
+    const replacements = { companyId };
     const sql = `
       SELECT 
         SUM(stock * cost) as totalValue,
         COUNT(id) as totalProducts
       FROM products
       WHERE stock > 0
+      AND company_id = :companyId
     `;
-    const [result] = await sequelize.query(sql, { type: QueryTypes.SELECT });
+    const [result] = await sequelize.query(sql, { replacements, type: QueryTypes.SELECT });
     return result;
   }
 
-  async getExportData(query) {
-    // Re-use logic but without pagination for exports usually, or with high limit
-    const { type, limit = 10000 } = query; // Default high limit for export
+  async getExportData(query, companyId) {
+    const { type, limit = 10000 } = query;
     const exportQuery = { ...query, limit };
 
     switch (type) {
       case 'sales_by_day':
-        return this.getSalesByDay(exportQuery);
+        return this.getSalesByDay(exportQuery, companyId);
       case 'top_products':
-        return this.getTopProducts(exportQuery);
+        return this.getTopProducts(exportQuery, companyId);
       case 'top_clients':
-        return this.getTopClients(exportQuery);
+        return this.getTopClients(exportQuery, companyId);
       case 'purchases_by_day':
-        return this.getPurchasesByDay(exportQuery);
+        return this.getPurchasesByDay(exportQuery, companyId);
       case 'top_suppliers':
-        return this.getTopSuppliers(exportQuery);
+        return this.getTopSuppliers(exportQuery, companyId);
       case 'low_stock':
-        return this.getLowStock(exportQuery);
+        return this.getLowStock(exportQuery, companyId);
       default:
         throw new Error('Invalid export type');
     }

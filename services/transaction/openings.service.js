@@ -8,12 +8,13 @@ const userService = new UsersService();
 const cashierService = new CashiersService();
 
 class OpeningsService {
-    async find(query) {
+    async find(query, companyId) {
         const { limit, offset, search, sortColumn, sortDirection } = query;
         const options = {
+            where: { companyId },
             order: [(sortColumn) ? [sortColumn, sortDirection] : ['id', 'DESC']]
         }
-        const optionsCount = {};
+        const optionsCount = { where: { companyId } };
 
         if (limit && offset) {
             options.limit = parseInt(limit);
@@ -22,12 +23,14 @@ class OpeningsService {
 
         if (search) {
             options.where = {
+                ...options.where,
                 id: {
                     [Op.like]: `%${search}%`
                 }
             }
 
             optionsCount.where = {
+                ...optionsCount.where,
                 id: {
                     [Op.like]: `%${search}%`
                 }
@@ -40,27 +43,31 @@ class OpeningsService {
         return { openings, total };
     }
 
-    async create(data, userId) {
+    async create(data, userId, companyId) {
         const user = await userService.findOne(userId);
         const employeeId = user.dataValues.employee.id
         const startDatetime = new Date();
 
+        const { companyId: _c, company_id: _ci, ...safe } = data;
+
         const opening = await models.Opening.create({
-            ...data,
+            ...safe,
             employeeId,
             startDatetime,
-            status: 1
+            status: 1,
+            companyId
         });
 
         if (opening) {
-            let cashier = await cashierService.findOne(data.cashierId)
-            await cashier.update({status: 1})
+            let cashier = await cashierService.findOne(safe.cashierId, companyId)
+            await cashier.update({ status: 1 })
         }
         return opening;
     }
 
-    async findOne(id) {
-        const opening = await models.Opening.findByPk(id, {
+    async findOne(id, companyId) {
+        const opening = await models.Opening.findOne({
+            where: { id, companyId },
             include: ['cashier', 'employee']
         });
         if (!opening) {
@@ -69,7 +76,7 @@ class OpeningsService {
         return opening;
     }
 
-    async findByEmployee(userId) {
+    async findByEmployee(userId, companyId) {
         const user = await userService.findOne(userId);
         const employeeId = user.dataValues.employee.id
 
@@ -77,7 +84,8 @@ class OpeningsService {
             include: ['cashier', 'employee', 'sales'],
             where: {
                 status: 1,
-                employeeId
+                employeeId,
+                companyId
             }
         });
         if (!opening) {
@@ -86,20 +94,20 @@ class OpeningsService {
         return opening;
     }
 
-    async update(id, changes) {
-        let opening = await this.findOne(id);
+    async update(id, changes, companyId) {
+        let opening = await this.findOne(id, companyId);
         opening = await opening.update(changes);
 
         if (opening) {
-            let cashier = await cashierService.findOne(opening.cashierId)
-            await cashier.update({status: 0})
+            let cashier = await cashierService.findOne(opening.cashierId, companyId)
+            await cashier.update({ status: 0 })
         }
 
         return opening;
     }
 
-    async delete(id) {
-        const opening = await this.findOne(id);
+    async delete(id, companyId) {
+        const opening = await this.findOne(id, companyId);
         await opening.destroy();
         return { id };
     }

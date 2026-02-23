@@ -3,18 +3,14 @@ const { Op } = require('sequelize');
 const { models } = require('../../libs/sequelize');
 
 class CategoriesService {
-    async find(query) {
+    async find(query, companyId) {
         const { limit, offset, search, sortColumn, sortDirection } = query;
 
         const options = {
-            // include: {
-            //     model: models.Subcategory,
-            //     as: 'subcategories',
-            //     attributes: ['id']
-            // },
+            where: { companyId },
             order: [(sortColumn) ? [sortColumn, sortDirection] : ['id', 'DESC']]
         }
-        const optionsCount = {};
+        const optionsCount = { where: { companyId } };
 
         if (limit && offset) {
             options.limit = parseInt(limit);
@@ -23,12 +19,14 @@ class CategoriesService {
 
         if (search) {
             options.where = {
+                ...options.where,
                 name: {
                     [Op.like]: `%${search}%`
                 }
             }
 
             optionsCount.where = {
+                ...optionsCount.where,
                 name: {
                     [Op.like]: `%${search}%`
                 }
@@ -41,27 +39,30 @@ class CategoriesService {
         return { categories, total };
     }
 
-    async create(data) {
-        const category = await models.Category.create(data);
+    async create(data, companyId) {
+        const { companyId: _c, company_id: _ci, ...safe } = data;
+        const category = await models.Category.create({ ...safe, companyId });
         return category;
     }
 
-    async findOne(id) {
-        const category = await models.Category.findByPk(id);
+    async findOne(id, companyId) {
+        const category = await models.Category.findOne({
+            where: { id, companyId }
+        });
         if (!category) {
             throw boom.notFound('No se encontro ninguna categoria');
         }
         return category;
     }
 
-    async update(id, changes) {
-        let category = await this.findOne(id);
+    async update(id, changes, companyId) {
+        let category = await this.findOne(id, companyId);
         category = await category.update(changes);
         return category;
     }
 
-    async delete(id) {
-        const category = await this.findOne(id);
+    async delete(id, companyId) {
+        const category = await this.findOne(id, companyId);
         await category.destroy();
         return { id };
     }

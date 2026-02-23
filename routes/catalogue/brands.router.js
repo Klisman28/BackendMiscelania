@@ -15,7 +15,7 @@ router.get('/',
     validatorHandler(queryBrandSchema, 'query'),
     async (req, res, next) => {
         try {
-            const brands = await service.find(req.query);
+            const brands = await service.find(req.query, req.companyId);
             success(res, brands);
         } catch (error) {
             next(error);
@@ -27,7 +27,7 @@ router.get('/:id',
     async (req, res, next) => {
         try {
             const { id } = req.params;
-            const brand = await service.findOne(id);
+            const brand = await service.findOne(id, req.companyId);
             success(res, brand, 'Marca encontrada con éxito');
         } catch (error) {
             next(error);
@@ -40,7 +40,7 @@ router.post('/',
     async (req, res, next) => {
         try {
             const body = req.body;
-            const brand = await service.create(body);
+            const brand = await service.create(body, req.companyId);
             success(res, brand, 'Marca registrada con éxito', 201);
         } catch (error) {
             next(error);
@@ -55,7 +55,7 @@ router.put('/:id',
         try {
             const { id } = req.params;
             const body = req.body;
-            const brand = await service.update(id, body);
+            const brand = await service.update(id, body, req.companyId);
             success(res, brand, 'Marca actualizada con éxito', 201);
         } catch (error) {
             next(error);
@@ -68,7 +68,7 @@ router.delete('/:id',
     async (req, res, next) => {
         try {
             const { id } = req.params;
-            await service.delete(id);
+            await service.delete(id, req.companyId);
             success(res, id, 'Marca eliminada con éxito');
         } catch (error) {
             next(error);

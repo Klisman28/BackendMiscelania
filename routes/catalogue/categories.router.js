@@ -15,7 +15,7 @@ router.get('/',
     validatorHandler(queryCategorySchema, 'query'),
     async (req, res, next) => {
         try {
-            const categories = await service.find(req.query);
+            const categories = await service.find(req.query, req.companyId);
             success(res, categories);
         } catch (error) {
             next(error);
@@ -27,7 +27,7 @@ router.get('/:id',
     async (req, res, next) => {
         try {
             const { id } = req.params;
-            const category = await service.findOne(id);
+            const category = await service.findOne(id, req.companyId);
             success(res, category, 'Categoría encontrada con éxito');
         } catch (error) {
             next(error);
@@ -40,7 +40,7 @@ router.post('/',
     async (req, res, next) => {
         try {
             const body = req.body;
-            const category = await service.create(body);
+            const category = await service.create(body, req.companyId);
             success(res, category, 'Categoría creada con éxito', 201);
         } catch (error) {
             next(error);
@@ -55,7 +55,7 @@ router.put('/:id',
         try {
             const { id } = req.params;
             const body = req.body;
-            const category = await service.update(id, body);
+            const category = await service.update(id, body, req.companyId);
             success(res, category, 'Categoría actualizada con éxito', 201);
         } catch (error) {
             next(error);
@@ -68,7 +68,7 @@ router.delete('/:id',
     async (req, res, next) => {
         try {
             const { id } = req.params;
-            await service.delete(id);
+            await service.delete(id, req.companyId);
             success(res, id, 'Categoría eliminada con éxito');
         } catch (error) {
             next(error);

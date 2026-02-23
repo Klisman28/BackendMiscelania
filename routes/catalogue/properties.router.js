@@ -11,7 +11,7 @@ router.get('/',
     async (req, res, next) => {
         try {
             const query = req.query;
-            const properties = await service.find(query);
+            const properties = await service.find(query, req.companyId);
             res.json(properties);
         } catch (error) {
             next(error);
@@ -24,7 +24,7 @@ router.get('/:id',
     async (req, res, next) => {
         try {
             const { id } = req.params;
-            const property = await service.findOne(id);
+            const property = await service.findOne(id, req.companyId);
             res.json(property);
         } catch (error) {
             next(error);
@@ -37,7 +37,7 @@ router.post('/',
     async (req, res, next) => {
         try {
             const body = req.body;
-            const property = await service.create(body);
+            const property = await service.create(body, req.companyId);
             res.status(201).json(property);
         } catch (error) {
             next(error);
@@ -52,7 +52,7 @@ router.put('/:id',
         try {
             const { id } = req.params;
             const body = req.body;
-            const property = await service.update(id, body);
+            const property = await service.update(id, body, req.companyId);
             res.status(201).json(property);
         } catch (error) {
             next(error);
@@ -65,7 +65,7 @@ router.delete('/:id',
     async (req, res, next) => {
         try {
             const { id } = req.params;
-            await service.delete(id);
+            await service.delete(id, req.companyId);
             res.json({ id });
         } catch (error) {
             next(error);

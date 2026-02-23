@@ -10,7 +10,7 @@ const service = new UserService();
 
 class AuthService {
 
-  async getUser(username, password) {
+  async getUser(username, password, targetCompanyId = null) {
     const user = await service.findByUsername(username);
     console.log('[AuthService] User found:', user ? user.toJSON() : 'Not found');
     if (!user) {
@@ -18,16 +18,11 @@ class AuthService {
     }
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      throw boom.unauthorized("Las credenciales son incorrectas");;
+      throw boom.unauthorized("Las credenciales son incorrectas");
     }
 
     delete user.dataValues.password;
     const flatRoles = (user.roles || []).map(role => role.name.toUpperCase());
-
-    // Fallback para usuarios legacy sin companyId
-    if (!user.companyId) {
-      user.companyId = 1;
-    }
 
     // --- SaaS Logic: Determine Active Company ---
     // Buscar membresías activas en company_users
@@ -39,16 +34,22 @@ class AuthService {
       include: ['company']
     });
 
-    let activeCompanyId = user.companyId; // Default to legacy/home company
+    if (memberships.length === 0) {
+      throw boom.forbidden('Usuario sin empresa asignada. Contacte al administrador.');
+    }
 
-    if (memberships.length > 0) {
-      // Prioritize the first active company found via pivot
-      // In the future, we could accept a 'targetCompanyId' param in login to choose
+    let activeCompanyId;
+
+    // Si el login trae targetCompanyId, validar que el user tenga membresía
+    if (targetCompanyId) {
+      const target = memberships.find(m => m.companyId === parseInt(targetCompanyId));
+      if (!target) {
+        throw boom.forbidden('No tienes acceso a la empresa solicitada');
+      }
+      activeCompanyId = target.companyId;
+    } else {
+      // Usar la primera company activa
       activeCompanyId = memberships[0].companyId;
-
-      // If we found memberships, we might also want to know the role in that specific company
-      // For now, we trust global roles, but ideally we should fetch role per company.
-      // const activeRole = memberships[0].role; 
     }
 
     // Si es admin de la empresa administradora (ID 1), le damos rol SUPERADMIN para el frontend

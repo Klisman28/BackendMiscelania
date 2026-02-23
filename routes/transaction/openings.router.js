@@ -22,7 +22,7 @@ router.get('/',
     validatorHandler(queryOpeningSchema, 'query'),
     async (req, res, next) => {
         try {
-            const openings = await service.find(req.query);
+            const openings = await service.find(req.query, req.companyId);
             success(res, openings);
         } catch (error) {
             next(error);
@@ -34,7 +34,7 @@ router.get('/current',
     async (req, res, next) => {
         try {
             const { sub } = req.user
-            const opening = await service.findByEmployee(sub);
+            const opening = await service.findByEmployee(sub, req.companyId);
             success(res, opening, 'Apertura encontrada con éxito');
         } catch (error) {
             next(error);
@@ -47,7 +47,7 @@ router.get('/:id',
     async (req, res, next) => {
         try {
             const { id } = req.params;
-            const opening = await service.findOne(id);
+            const opening = await service.findOne(id, req.companyId);
             success(res, opening, 'Apertura encontrada con éxito');
         } catch (error) {
             next(error);
@@ -61,7 +61,7 @@ router.post('/',
         try {
             const { sub } = req.user
             const body = req.body;
-            const opening = await service.create(body, sub);
+            const opening = await service.create(body, sub, req.companyId);
             success(res, opening, 'Apertura registrada con éxito');
         } catch (error) {
             next(error);
@@ -75,10 +75,8 @@ router.put('/:id',
     async (req, res, next) => {
         try {
             const { id } = req.params;
-            console.log(req.params);
-
             const body = req.body;
-            const opening = await service.update(id, body);
+            const opening = await service.update(id, body, req.companyId);
             success(res, opening, 'Apertura actualizada con éxito');
         } catch (error) {
             next(error);
@@ -91,7 +89,7 @@ router.delete('/:id',
     async (req, res, next) => {
         try {
             const { id } = req.params;
-            await service.delete(id);
+            await service.delete(id, req.companyId);
             success(res, id, 'Apertura eliminada con éxito', 201);
         } catch (error) {
             next(error);
@@ -106,7 +104,7 @@ router.get('/:id/movements',
     async (req, res, next) => {
         try {
             const { id } = req.params;
-            const movements = await movementService.find(id, req.query);
+            const movements = await movementService.find(id, req.query, req.companyId);
             success(res, movements);
         } catch (error) {
             next(error);
@@ -122,7 +120,7 @@ router.post('/:id/movements',
             const { id } = req.params;
             const { sub } = req.user;
             const body = req.body;
-            const movement = await movementService.create(id, body, sub);
+            const movement = await movementService.create(id, body, sub, req.companyId);
             success(res, movement, 'Movimiento registrado', 201);
         } catch (error) {
             next(error);
@@ -135,7 +133,7 @@ router.get('/:id/summary',
     async (req, res, next) => {
         try {
             const { id } = req.params;
-            const summary = await movementService.getSummary(id);
+            const summary = await movementService.getSummary(id, req.companyId);
             success(res, summary);
         } catch (error) {
             next(error);

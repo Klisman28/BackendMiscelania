@@ -96,7 +96,7 @@ class InventoryService {
         }
     }
 
-    async transfer(data) {
+    async transfer(data, companyId) {
         // data: { fromWarehouseId, toWarehouseId, items: [{ productId, quantity }], userId, observation }
         const t = await sequelize.transaction();
         try {
@@ -104,9 +104,15 @@ class InventoryService {
 
             if (fromWarehouseId === toWarehouseId) throw boom.badRequest('Las bodegas origen y destino deben ser diferentes');
 
-            // 1. Verify warehouses
-            const fromWarehouse = await models.Warehouse.findByPk(fromWarehouseId, { transaction: t });
-            const toWarehouse = await models.Warehouse.findByPk(toWarehouseId, { transaction: t });
+            // 1. Verify warehouses BELONG TO THIS COMPANY
+            const fromWarehouse = await models.Warehouse.findOne({
+                where: { id: fromWarehouseId, companyId },
+                transaction: t
+            });
+            const toWarehouse = await models.Warehouse.findOne({
+                where: { id: toWarehouseId, companyId },
+                transaction: t
+            });
 
             if (!fromWarehouse || !toWarehouse) throw boom.notFound('Una de las bodegas no existe');
             if (!fromWarehouse.active || !toWarehouse.active) throw boom.badRequest('Una de las bodegas está inactiva');
@@ -125,9 +131,9 @@ class InventoryService {
             for (const item of items) {
                 const { productId, quantity } = item;
 
-                // Check Source Balance
+                // Check Source Balance (scoped by companyId)
                 const sourceBalance = await models.InventoryBalance.findOne({
-                    where: { warehouseId: fromWarehouseId, productId },
+                    where: { warehouseId: fromWarehouseId, productId, companyId },
                     transaction: t,
                     lock: t.LOCK.UPDATE
                 });
@@ -148,13 +154,14 @@ class InventoryService {
                     referenceId: transfer.id.toString(),
                     description: `Transferencia a ${toWarehouse.name}`,
                     userId,
-                    createdAt: new Date()
+                    createdAt: new Date(),
+                    companyId
                 }, { transaction: t });
 
 
-                // Increment Destination
+                // Increment Destination (scoped by companyId)
                 const destBalance = await models.InventoryBalance.findOne({
-                    where: { warehouseId: toWarehouseId, productId },
+                    where: { warehouseId: toWarehouseId, productId, companyId },
                     transaction: t
                 });
 
@@ -164,7 +171,8 @@ class InventoryService {
                     await models.InventoryBalance.create({
                         warehouseId: toWarehouseId,
                         productId,
-                        quantity
+                        quantity,
+                        companyId
                     }, { transaction: t });
                 }
 
@@ -177,7 +185,8 @@ class InventoryService {
                     referenceId: transfer.id.toString(),
                     description: `Transferencia de ${fromWarehouse.name}`,
                     userId,
-                    createdAt: new Date()
+                    createdAt: new Date(),
+                    companyId
                 }, { transaction: t });
 
                 // Create Transfer Item
@@ -197,7 +206,7 @@ class InventoryService {
         }
     }
 
-    async listTransfers(query) {
+    async listTransfers(query, companyId) {
         const { pageIndex = 1, pageSize = 10, search, sort } = query;
         const limit = parseInt(pageSize, 10);
         const offset = (parseInt(pageIndex, 10) - 1) * limit;
@@ -206,7 +215,7 @@ class InventoryService {
             limit,
             offset,
             include: [
-                { model: models.Warehouse, as: 'fromWarehouse' },
+                { model: models.Warehouse, as: 'fromWarehouse', where: { companyId } },
                 { model: models.Warehouse, as: 'toWarehouse' }
             ],
             attributes: {
@@ -228,7 +237,7 @@ class InventoryService {
                 [Op.or]: [
                     { observation: { [Op.like]: `%${search}%` } },
                     { status: { [Op.like]: `%${search}%` } },
-                    { '$fromWarehouse.name$': { [Op.like]: `%${search}%` } }, // Requiere 'fromWarehouse' in include with alias
+                    { '$fromWarehouse.name$': { [Op.like]: `%${search}%` } },
                     { '$toWarehouse.name$': { [Op.like]: `%${search}%` } }
                 ]
             };
@@ -280,10 +289,11 @@ class InventoryService {
         };
     }
 
-    async getTransferById(id) {
-        const transfer = await models.Transfer.findByPk(id, {
+    async getTransferById(id, companyId) {
+        const transfer = await models.Transfer.findOne({
+            where: { id },
             include: [
-                { model: models.Warehouse, as: 'fromWarehouse' },
+                { model: models.Warehouse, as: 'fromWarehouse', where: { companyId } },
                 { model: models.Warehouse, as: 'toWarehouse' },
                 {
                     model: models.TransferItem,
@@ -396,10 +406,10 @@ class InventoryService {
         };
     }
 
-    async getMovements(query) {
+    async getMovements(query, companyId) {
         const { warehouseId, productId, type, limit, offset } = query;
         const options = {
-            where: {},
+            where: { companyId },
             order: [['createdAt', 'DESC']],
             include: ['product', 'warehouse']
         };
@@ -415,10 +425,6 @@ class InventoryService {
             }
             if (query.dateTo) {
                 let endDate = new Date(query.dateTo);
-                // Adjust to end of day if it's just a date string, or trust the input
-                // Assuming simple YYYY-MM-DD, we might want to include the whole day
-                // If it's ISO, we use it as is.
-                // For simplicity, let's just use GTE/LTE
                 options.where.createdAt[Op.lte] = endDate;
             }
         }

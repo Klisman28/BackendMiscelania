@@ -13,7 +13,7 @@ const service = new ConfigsService();
 router.get('/',
     async (req, res, next) => {
         try {
-            const config = await service.findFirst();
+            const config = await service.findFirst(req.companyId);
             success(res, config, 'Configuración encontrado con éxito');
         } catch (error) {
             next(error);
@@ -26,7 +26,7 @@ router.post('/',
     async (req, res, next) => {
         try {
             const body = req.body;
-            const config = await service.create(body);
+            const config = await service.create(body, req.companyId);
             success(res, config, 'Configuración registrado con éxito');
         } catch (error) {
             next(error);
@@ -39,7 +39,7 @@ router.get('/:id',
     async (req, res, next) => {
         try {
             const { id } = req.params;
-            const config = await service.findOne(id);
+            const config = await service.findOne(id, req.companyId);
             success(res, config, 'Configuración encontrado con éxito');
         } catch (error) {
             next(error);
@@ -54,7 +54,7 @@ router.put('/:id',
         try {
             const { id } = req.params;
             const body = req.body;
-            const config = await service.update(id, body);
+            const config = await service.update(id, body, req.companyId);
             success(res, config, 'Configuración actualizado con éxito');
         } catch (error) {
             next(error);
@@ -67,8 +67,8 @@ router.delete('/:id',
     async (req, res, next) => {
         try {
             const { id } = req.params;
-            await service.delete(id);
-            success(res, id, 'Cajero eliminado con éxito', 201);
+            await service.delete(id, req.companyId);
+            success(res, id, 'Configuración eliminado con éxito', 201);
         } catch (error) {
             next(error);
         }

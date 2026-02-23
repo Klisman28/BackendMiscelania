@@ -3,13 +3,14 @@ const { Op } = require('sequelize');
 const { models } = require('../../libs/sequelize');
 
 class SubcategoriesService {
-    async find(query) {
+    async find(query, companyId) {
         const { limit, offset, search, sortColumn, sortDirection } = query;
         const options = {
+            where: { companyId },
             include: ['category'],
             order: [(sortColumn) ? [sortColumn, sortDirection] : ['id', 'DESC']]
         }
-        const optionsCount = {};
+        const optionsCount = { where: { companyId } };
 
         if (limit && offset) {
             options.limit = parseInt(limit);
@@ -18,12 +19,14 @@ class SubcategoriesService {
 
         if (search) {
             options.where = {
+                ...options.where,
                 name: {
                     [Op.like]: `%${search}%`
                 }
             }
 
             optionsCount.where = {
+                ...optionsCount.where,
                 name: {
                     [Op.like]: `%${search}%`
                 }
@@ -36,29 +39,16 @@ class SubcategoriesService {
         return { subcategories, total };
     }
 
-    async create(data) {
-        const subcategory = await models.Subcategory.create(data);
-
-        // if (data.brands && data.brands.length > 0) {
-        //     data.brands.forEach(async (id) => {
-        //         const brand = await models.Brand.findByPk(id);
-        //         await subcategory.addBrand(brand);
-        //     });
-        // }
+    async create(data, companyId) {
+        const { companyId: _c, company_id: _ci, ...safe } = data;
+        const subcategory = await models.Subcategory.create({ ...safe, companyId });
         return subcategory;
     }
 
-    async findOne(id) {
-        const subcategory = await models.Subcategory.findByPk(id, {
+    async findOne(id, companyId) {
+        const subcategory = await models.Subcategory.findOne({
+            where: { id, companyId },
             include: [
-                // {
-                //     model: models.Brand,
-                //     as: 'brands',
-                //     attributes: ['id', 'name'],
-                //     through: {
-                //         attributes: []
-                //     }
-                // },
                 {
                     model: models.Category,
                     as: 'category',
@@ -71,26 +61,14 @@ class SubcategoriesService {
         return subcategory;
     }
 
-    async update(id, changes) {
-        let subcategory = await this.findOne(id);
-        
+    async update(id, changes, companyId) {
+        let subcategory = await this.findOne(id, companyId);
         subcategory = await subcategory.update(changes);
-        // if (changes.brands) {
-        //     await models.BrandSubcategory.destroy({
-        //         where: {
-        //             subcategoryId: id
-        //         }
-        //     });
-        //     changes.brands.forEach(async (id) => {
-        //         const brand = await models.Brand.findByPk(id)
-        //         await subcategory.addBrand(brand);
-        //     });
-        // }
         return subcategory;
     }
 
-    async delete(id) {
-        const subcategory = await this.findOne(id);
+    async delete(id, companyId) {
+        const subcategory = await this.findOne(id, companyId);
         await subcategory.destroy();
         return { id };
     }

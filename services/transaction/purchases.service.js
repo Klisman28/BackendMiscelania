@@ -7,9 +7,10 @@ const UsersService = require('../../services/organization/users.service');
 const service = new UsersService();
 
 class PurchasesService {
-  async find(query) {
+  async find(query, companyId) {
     const { limit, offset, search, sortColumn, sortDirection } = query;
     const options = {
+      where: { companyId },
       include: [
         {
           model: models.Product,
@@ -27,6 +28,7 @@ class PurchasesService {
     };
 
     const optionsCount = {
+      where: { companyId },
       include: [
         { model: models.Supplier, as: 'supplier', attributes: ['name', 'ruc'] },
       ]
@@ -40,11 +42,11 @@ class PurchasesService {
     // Si "number" es columna de purchases, filtra en options.where
     if (search) {
       options.where = {
-        ...(options.where || {}),
+        ...options.where,
         number: { [Op.like]: `%${search}%` },
       };
       optionsCount.where = {
-        ...(optionsCount.where || {}),
+        ...optionsCount.where,
         number: { [Op.like]: `%${search}%` },
       };
     }
@@ -54,23 +56,24 @@ class PurchasesService {
     return { purchases, total };
   }
 
-  async create(data, userId) {
+  async create(data, userId, companyId) {
     const user = await service.findOne(userId);
     const employeeId = user.dataValues.employee.id;
 
+    // Sanitize: remove any client-sent companyId
+    const { companyId: _c, company_id: _ci, ...safeData } = data;
+
     return await sequelize.transaction(async (t) => {
       const purchas = await models.Purchas.create(
-        { ...data, employeeId },
+        { ...safeData, employeeId, companyId },
         { transaction: t }
       );
 
-      if (data.products && data.products.length > 0) {
-        // Evita forEach(async…)
-        for (const item of data.products) {
-          // (1) Crea el ítem en la tabla puente
+      if (safeData.products && safeData.products.length > 0) {
+        for (const item of safeData.products) {
           const product = await models.Product.findByPk(item.productId, {
             transaction: t,
-            lock: t.LOCK.UPDATE, // opcional: evita condiciones de carrera en concurrencia alta
+            lock: t.LOCK.UPDATE,
           });
 
           if (!product) throw boom.badRequest(`Producto ${item.productId} no existe`);
@@ -80,9 +83,8 @@ class PurchasesService {
             transaction: t,
           });
 
-          // (2) Actualiza stock (compras suman)
           await models.Product.increment(
-            { stock: item.quantity }, // usa -item.quantity si tu caso es “descontar” en compra
+            { stock: item.quantity },
             { where: { id: item.productId }, transaction: t }
           );
         }
@@ -92,8 +94,9 @@ class PurchasesService {
     });
   }
 
-  async findOne(id) {
-    const purchas = await models.Purchas.findByPk(id, {
+  async findOne(id, companyId) {
+    const purchas = await models.Purchas.findOne({
+      where: { id, companyId },
       include: [
         {
           model: models.Product,
@@ -112,21 +115,16 @@ class PurchasesService {
     return purchas;
   }
 
-  async update(id, changes) {
-    // Estrategia simple y segura:
-    // 1) Revertir stock de los ítems actuales
-    // 2) Borrar ítems actuales
-    // 3) Insertar nuevos ítems y aplicar stock de nuevo
-    // Todo en transacción.
+  async update(id, changes, companyId) {
     return await sequelize.transaction(async (t) => {
-      let purchas = await this.findOne(id);
+      let purchas = await this.findOne(id, companyId);
 
       // 1) Revertir stock actual
       if (purchas.products?.length) {
         for (const p of purchas.products) {
           const qty = p.item.quantity;
           await models.Product.decrement(
-            { stock: qty }, // compras sumaron -> para revertir, restamos
+            { stock: qty },
             { where: { id: p.id }, transaction: t }
           );
         }
@@ -134,7 +132,7 @@ class PurchasesService {
 
       // 2) Borrar ítems actuales de la compra
       await models.ProductPurchas.destroy({
-        where: { purchasId: id }, // <— corregido
+        where: { purchasId: id },
         transaction: t
       });
 
@@ -154,7 +152,6 @@ class PurchasesService {
             transaction: t,
           });
 
-          // Aplicar stock por los nuevos ítems
           await models.Product.increment(
             { stock: item.quantity },
             { where: { id: item.productId }, transaction: t }
@@ -166,10 +163,8 @@ class PurchasesService {
     });
   }
 
-  async delete(id) {
-    // Si deseas mantener stock consistente, al borrar una compra
-    // podrías revertir el stock antes de destruirla (similar a update()).
-    const purchas = await this.findOne(id);
+  async delete(id, companyId) {
+    const purchas = await this.findOne(id, companyId);
     await purchas.destroy();
     return { id };
   }

@@ -15,7 +15,7 @@ router.get('/',
     validatorHandler(queryEmployeeSchema, 'query'),
     async (req, res, next) => {
         try {
-            const employees = await service.find(req.query);
+            const employees = await service.find(req.query, req.companyId);
             success(res, employees);
         } catch (error) {
             next(error);
@@ -28,7 +28,7 @@ router.get('/:id',
     async (req, res, next) => {
         try {
             const { id } = req.params;
-            const employee = await service.findOne(id);
+            const employee = await service.findOne(id, req.companyId);
             success(res, employee, 'Empleado encontrado con éxito');
         } catch (error) {
             next(error);
@@ -41,7 +41,7 @@ router.post('/',
     async (req, res, next) => {
         try {
             const body = req.body;
-            const employee = await service.create(body);
+            const employee = await service.create(body, req.companyId);
             success(res, employee, 'Empleado registrado con éxito', 201);
         } catch (error) {
             next(error);
@@ -56,7 +56,7 @@ router.put('/:id',
         try {
             const { id } = req.params;
             const body = req.body;
-            const employee = await service.update(id, body);
+            const employee = await service.update(id, body, req.companyId);
             success(res, employee, 'Empleado actualizado con éxito', 201);
         } catch (error) {
             next(error);
@@ -69,7 +69,7 @@ router.delete('/:id',
     async (req, res, next) => {
         try {
             const { id } = req.params;
-            await service.delete(id);
+            await service.delete(id, req.companyId);
             success(res, id, 'Empleado eliminado con éxito', 201);
         } catch (error) {
             next(error);

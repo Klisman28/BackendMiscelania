@@ -15,7 +15,7 @@ router.get('/',
     validatorHandler(queryCashierSchema, 'query'),
     async (req, res, next) => {
         try {
-            const cashiers = await service.find(req.query);
+            const cashiers = await service.find(req.query, req.companyId);
             success(res, cashiers);
         } catch (error) {
             next(error);
@@ -26,7 +26,7 @@ router.get('/',
 router.get('/available',
     async (req, res, next) => {
         try {
-            const cashiers = await service.findByStatus();
+            const cashiers = await service.findByStatus(req.companyId);
             success(res, cashiers);
         } catch (error) {
             next(error);
@@ -39,7 +39,7 @@ router.get('/:id',
     async (req, res, next) => {
         try {
             const { id } = req.params;
-            const cashier = await service.findOne(id);
+            const cashier = await service.findOne(id, req.companyId);
             success(res, cashier, 'Cajero encontrado con éxito');
         } catch (error) {
             next(error);
@@ -52,7 +52,7 @@ router.post('/',
     async (req, res, next) => {
         try {
             const body = req.body;
-            const cashier = await service.create(body);
+            const cashier = await service.create(body, req.companyId);
             success(res, cashier, 'Cajero registrado con éxito');
         } catch (error) {
             next(error);
@@ -67,7 +67,7 @@ router.put('/:id',
         try {
             const { id } = req.params;
             const body = req.body;
-            const cashier = await service.update(id, body);
+            const cashier = await service.update(id, body, req.companyId);
             success(res, cashier, 'Cajero actualizado con éxito');
         } catch (error) {
             next(error);
@@ -80,7 +80,7 @@ router.delete('/:id',
     async (req, res, next) => {
         try {
             const { id } = req.params;
-            await service.delete(id);
+            await service.delete(id, req.companyId);
             success(res, id, 'Cajero eliminado con éxito', 201);
         } catch (error) {
             next(error);

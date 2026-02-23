@@ -4,13 +4,19 @@ const { models } = require('../../libs/sequelize');
 class CashMovementService {
     constructor() { }
 
-    async create(openingId, data, userId) {
-        const opening = await models.Opening.findByPk(openingId);
+    /**
+     * CashMovement no tiene company_id directamente; se scopa a través de Opening.
+     * Verificamos que el opening pertenezca a la empresa del usuario.
+     */
+    async create(openingId, data, userId, companyId) {
+        const opening = await models.Opening.findOne({
+            where: { id: openingId, companyId }
+        });
         if (!opening) {
-            throw boom.notFound('Opening not found');
+            throw boom.notFound('Apertura no encontrada');
         }
         if (opening.status !== 1) {
-            throw boom.badRequest('Opening is not currently active (status is not 1)');
+            throw boom.badRequest('La apertura no está activa');
         }
 
         const newMovement = await models.CashMovement.create({
@@ -21,7 +27,15 @@ class CashMovementService {
         return newMovement;
     }
 
-    async find(openingId, query) {
+    async find(openingId, query, companyId) {
+        // Verificar que el opening pertenece a esta empresa
+        const opening = await models.Opening.findOne({
+            where: { id: openingId, companyId }
+        });
+        if (!opening) {
+            throw boom.notFound('Apertura no encontrada');
+        }
+
         const { limit, offset, search, sortColumn, sortDirection } = query;
         const options = {
             where: { openingId },
@@ -38,10 +52,12 @@ class CashMovementService {
         return movements;
     }
 
-    async getSummary(openingId) {
-        const opening = await models.Opening.findByPk(openingId);
+    async getSummary(openingId, companyId) {
+        const opening = await models.Opening.findOne({
+            where: { id: openingId, companyId }
+        });
         if (!opening) {
-            throw boom.notFound('Opening not found');
+            throw boom.notFound('Apertura no encontrada');
         }
 
         const totalSalesResult = await models.Sale.sum('total', { where: { openingId } });
