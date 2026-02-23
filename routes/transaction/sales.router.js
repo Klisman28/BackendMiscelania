@@ -17,7 +17,7 @@ router.get('/',
     validatorHandler(querySaleSchema, 'query'),
     async (req, res, next) => {
         try {
-            const sales = await service.find(req.query);
+            const sales = await service.find(req.query, req.companyId);
             success(res, sales);
         } catch (error) {
             next(error);
@@ -30,7 +30,7 @@ router.get('/:id',
     async (req, res, next) => {
         try {
             const { id } = req.params;
-            const sale = await service.findOne(id);
+            const sale = await service.findOne(id, req.companyId);
             success(res, sale, 'Venta encontrada con éxito');
         } catch (error) {
             next(error);
@@ -43,7 +43,7 @@ router.get('/opening/:openingId',
     async (req, res, next) => {
         try {
             const { openingId } = req.params;
-            const sales = await service.findByOpening(openingId);
+            const sales = await service.findByOpening(openingId, req.companyId);
             success(res, sales);
         } catch (error) {
             next(error);
@@ -56,7 +56,7 @@ router.post('/',
     async (req, res, next) => {
         try {
             const body = req.body;
-            const sale = await service.create(body);
+            const sale = await service.create(body, req.companyId);
             success(res, sale, 'Venta registrada con éxito');
         } catch (error) {
             next(error);
@@ -71,7 +71,7 @@ router.put('/:id',
         try {
             const { id } = req.params;
             const body = req.body;
-            const sale = await service.update(id, body);
+            const sale = await service.update(id, body, req.companyId);
             success(res, sale, 'Venta actualizada con éxito');
         } catch (error) {
             next(error);
@@ -82,23 +82,23 @@ router.put('/:id',
 router.put('/:id',
     validatorHandler(getSaleSchema, 'params'),
     async (req, res, next) => {
-      try {
-        const { id } = req.params;
-        const sale = await service.returnSale(id);
-        success(res, sale, 'Devolución realizada con éxito');
-      } catch (error) {
-        next(error);
-      }
+        try {
+            const { id } = req.params;
+            const sale = await service.returnSale(id, req.companyId);
+            success(res, sale, 'Devolución realizada con éxito');
+        } catch (error) {
+            next(error);
+        }
     }
-  );
+);
 
-  
+
 router.delete('/:id',
     validatorHandler(getSaleSchema, 'params'),
     async (req, res, next) => {
         try {
             const { id } = req.params;
-            await service.delete(id);
+            await service.delete(id, req.companyId);
             success(res, id, 'Venta anulada con éxito', 201);
         } catch (error) {
             next(error);

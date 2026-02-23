@@ -21,7 +21,7 @@ router.get('/',
     validatorHandler(queryProductSchema, 'query'),
     async (req, res, next) => {
         try {
-            const products = await service.find(req.query);
+            const products = await service.find(req.query, req.companyId);
             success(res, products);
         } catch (error) {
             next(error);
@@ -33,7 +33,7 @@ router.get('/search',
     validatorHandler(searchProductSchema, 'query'),
     async (req, res, next) => {
         try {
-            const products = await service.search(req.query);
+            const products = await service.search(req.query, req.companyId);
             success(res, products);
         } catch (error) {
             next(error);
@@ -44,7 +44,7 @@ router.get('/search',
 router.get('/units',
     async (req, res, next) => {
         try {
-            const units = await service.findUnits();
+            const units = await service.findUnits(req.companyId);
             success(res, units);
         } catch (error) {
             next(error);
@@ -57,7 +57,7 @@ router.get('/:id',
     async (req, res, next) => {
         try {
             const { id } = req.params;
-            const product = await service.findOne(id);
+            const product = await service.findOne(id, req.companyId);
             success(res, product, 'Producto encontrado con éxito');
         } catch (error) {
             next(error);
@@ -104,7 +104,7 @@ router.post('/',
 
             // Pasar el modo al service para que aplique defaults apropiados
             // Pasar también el archivo
-            const product = await service.create(validatedBody, isQuickMode, file);
+            const product = await service.create(validatedBody, isQuickMode, file, req.companyId);
             success(res, product, 'Producto registrado con éxito', 201);
         } catch (error) {
             next(error);
@@ -122,7 +122,7 @@ router.put('/:id',
             const body = req.body;
             const file = req.file;
 
-            const product = await service.update(id, body, file);
+            const product = await service.update(id, body, file, req.companyId);
             success(res, product, 'Producto actualizado con éxito', 201);
         } catch (error) {
             next(error);
@@ -135,7 +135,7 @@ router.delete('/:id',
     async (req, res, next) => {
         try {
             const { id } = req.params;
-            await service.delete(id);
+            await service.delete(id, req.companyId);
             success(res, id, 'Producto eliminado con éxito');
         } catch (error) {
             next(error);

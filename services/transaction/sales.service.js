@@ -3,7 +3,7 @@ const { Op } = require('sequelize');
 const { sequelize, Sequelize, models } = require('../../libs/sequelize');
 
 class SalesService {
-  async find(query) {
+  async find(query, companyId) {
     const {
       limit,
       offset,
@@ -15,7 +15,7 @@ class SalesService {
     } = query;
 
     const options = {
-      where: {},
+      where: { companyId },
       include: [
         {
           model: models.Product,
@@ -67,7 +67,7 @@ class SalesService {
     };
 
     const optionsCount = {
-      where: {},
+      where: { companyId },
       include: [
         {
           model: models.Product,
@@ -184,10 +184,13 @@ class SalesService {
     }
   }
 
-  async create(data) {
+  async create(data, companyId) {
     return await sequelize.transaction(async (t) => {
       // 1. Obtener configuración actual
-      const config = await models.Config.findOne({ transaction: t });
+      const config = await models.Config.findOne({
+        where: { companyId },
+        transaction: t
+      });
       if (!config) {
         throw boom.notFound('No se encontró configuración para tickets');
       }
@@ -211,7 +214,7 @@ class SalesService {
       }
 
       // 3. Crear la venta
-      const sale = await models.Sale.create(data, { transaction: t });
+      const sale = await models.Sale.create({ ...data, companyId }, { transaction: t });
 
       // 4. Asociar productos (manteniendo tu lógica actual)
       // 3) Agregar ítems y **RESTAR** stock
@@ -232,7 +235,7 @@ class SalesService {
 
           // Validar stock suficiente en BODEGA
           const balance = await models.InventoryBalance.findOne({
-            where: { warehouseId: data.warehouseId, productId: item.productId },
+            where: { warehouseId: data.warehouseId, productId: item.productId, companyId },
             transaction: t,
             lock: t.LOCK.UPDATE
           });
@@ -267,7 +270,8 @@ class SalesService {
             referenceId: sale.id.toString(),
             description: `Venta ${sale.type} ${sale.number || sale.id}`,
             userId: null, // Si data.userId existe, usarlo
-            createdAt: new Date()
+            createdAt: new Date(),
+            companyId
           }, { transaction: t });
         }
       }
@@ -284,10 +288,11 @@ class SalesService {
     });
   }
 
-  async findByOpening(openingId) {
+  async findByOpening(openingId, companyId) {
     const options = {
       where: {
-        openingId: openingId
+        openingId: openingId,
+        companyId
       },
       include: [
         {
@@ -342,8 +347,9 @@ class SalesService {
     return { sales, total };
   }
 
-  async findOne(id) {
-    const sale = await models.Sale.findByPk(id, {
+  async findOne(id, companyId) {
+    const sale = await models.Sale.findOne({
+      where: { id, companyId },
       include: [
         {
           model: models.Opening,
@@ -389,8 +395,8 @@ class SalesService {
     return sale;
   }
 
-  async update(id, changes) {
-    let sale = await this.findOne(id);
+  async update(id, changes, companyId) {
+    let sale = await this.findOne(id, companyId);
     sale = await sale.update(changes);
     // if (changes.products && changes.products.length > 0) {
     //     await models.ProductPurchas.destroy({
@@ -406,9 +412,9 @@ class SalesService {
     return sale;
   }
 
-  async delete(id) {
+  async delete(id, companyId) {
     // Primero, encontramos la venta por ID
-    const sale = await this.findOne(id);
+    const sale = await this.findOne(id, companyId);
 
     // Verificamos si la venta tiene productos
     if (sale.products && sale.products.length > 0) {
@@ -430,7 +436,7 @@ class SalesService {
           console.log(`Restaurando stock para el producto con ID ${product.id}, sumando ${quantity} unidades al stock actual en bodega ${warehouseId}.`);
 
           const balance = await models.InventoryBalance.findOne({
-            where: { warehouseId, productId: product.id },
+            where: { warehouseId, productId: product.id, companyId },
             transaction: t
           });
 
@@ -441,7 +447,8 @@ class SalesService {
             await models.InventoryBalance.create({
               warehouseId,
               productId: product.id,
-              quantity
+              quantity,
+              companyId
             }, { transaction: t });
           }
 
@@ -454,7 +461,8 @@ class SalesService {
             referenceId: sale.id.toString(),
             description: `Eliminación Venta ${sale.id}`,
             userId: null,
-            createdAt: new Date()
+            createdAt: new Date(),
+            companyId
           }, { transaction: t });
         }
       }
@@ -479,12 +487,12 @@ class SalesService {
   }
 
 
-  async returnSale(id) {
+  async returnSale(id, companyId) {
     const t = await models.sequelize.transaction();
     try {
       console.log(`Iniciando la devolución de la venta con ID: ${id}`);
 
-      const sale = await this.findOne(id);
+      const sale = await this.findOne(id, companyId);
       console.log(`Venta encontrada: ${JSON.stringify(sale)}`);
 
       if (sale.status === 2) {
@@ -505,7 +513,7 @@ class SalesService {
           console.log(`Actualizando stock para el producto con ID ${product.id}, aumentando ${quantity} unidades al stock actual en bodega ${warehouseId}.`);
 
           const balance = await models.InventoryBalance.findOne({
-            where: { warehouseId, productId: product.id },
+            where: { warehouseId, productId: product.id, companyId },
             transaction: t
           });
 
@@ -515,7 +523,8 @@ class SalesService {
             await models.InventoryBalance.create({
               warehouseId,
               productId: product.id,
-              quantity
+              quantity,
+              companyId
             }, { transaction: t });
           }
 
@@ -528,7 +537,8 @@ class SalesService {
             referenceId: sale.id.toString(),
             description: `Devolución Venta ${sale.id}`,
             userId: null,
-            createdAt: new Date()
+            createdAt: new Date(),
+            companyId
           }, { transaction: t });
         }
       }

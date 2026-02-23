@@ -37,6 +37,12 @@ const InventoryBalanceSchema = {
         allowNull: false,
         type: DataTypes.INTEGER,
         defaultValue: 0
+    },
+    companyId: {
+        field: 'company_id',
+        allowNull: true,
+        type: DataTypes.INTEGER,
+        defaultValue: 1
     }
 };
 
@@ -50,6 +56,7 @@ class InventoryBalance extends Model {
             as: 'warehouse',
             foreignKey: 'warehouseId'
         });
+        this.belongsTo(models.Company, { as: 'company', foreignKey: 'companyId' });
     }
 
     static config(sequelize) {

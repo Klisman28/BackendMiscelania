@@ -16,6 +16,12 @@ const TicketSchema = {
     allowNull: false,
     type: DataTypes.DATE
   },
+  companyId: {
+    field: 'company_id',
+    allowNull: true,
+    type: DataTypes.INTEGER,
+    defaultValue: 1
+  },
   createdAt: {
     field: 'created_at',
     allowNull: false,
@@ -29,6 +35,10 @@ const TicketSchema = {
 };
 
 class Ticket extends Model {
+  static associate(models) {
+    this.belongsTo(models.Company, { as: 'company', foreignKey: 'companyId' });
+  }
+
   static config(sequelize) {
     return {
       sequelize,

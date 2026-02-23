@@ -30,6 +30,12 @@ const CategorySchema = {
     slug: {
         type: DataTypes.STRING,
         unique: true
+    },
+    companyId: {
+        field: 'company_id',
+        allowNull: true,
+        type: DataTypes.INTEGER,
+        defaultValue: 1
     }
 }
 
@@ -39,6 +45,7 @@ class Category extends Model {
             as: 'subcategories',
             foreignKey: 'categoryId'
         });
+        this.belongsTo(models.Company, { as: 'company', foreignKey: 'companyId' });
     }
 
     static config(sequelize) {

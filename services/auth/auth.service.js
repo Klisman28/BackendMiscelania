@@ -3,6 +3,7 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 // const nodemailer = require('nodemailer');
 
+const { models } = require('../../libs/sequelize'); // Import models
 const config = require('../../config/auth.config');
 const UserService = require('../organization/users.service');
 const service = new UserService();
@@ -11,6 +12,7 @@ class AuthService {
 
   async getUser(username, password) {
     const user = await service.findByUsername(username);
+    console.log('[AuthService] User found:', user ? user.toJSON() : 'Not found');
     if (!user) {
       throw boom.unauthorized("Las credenciales son incorrectas");
     }
@@ -20,14 +22,48 @@ class AuthService {
     }
 
     delete user.dataValues.password;
-    const flatRoles = user.roles.map(role => role.name);
-    return {...user.dataValues, roles: flatRoles};
+    const flatRoles = (user.roles || []).map(role => role.name.toUpperCase());
+
+    // Fallback para usuarios legacy sin companyId
+    if (!user.companyId) {
+      user.companyId = 1;
+    }
+
+    // --- SaaS Logic: Determine Active Company ---
+    // Buscar membresías activas en company_users
+    const memberships = await models.CompanyUser.findAll({
+      where: {
+        userId: user.id,
+        status: 'active'
+      },
+      include: ['company']
+    });
+
+    let activeCompanyId = user.companyId; // Default to legacy/home company
+
+    if (memberships.length > 0) {
+      // Prioritize the first active company found via pivot
+      // In the future, we could accept a 'targetCompanyId' param in login to choose
+      activeCompanyId = memberships[0].companyId;
+
+      // If we found memberships, we might also want to know the role in that specific company
+      // For now, we trust global roles, but ideally we should fetch role per company.
+      // const activeRole = memberships[0].role; 
+    }
+
+    // Si es admin de la empresa administradora (ID 1), le damos rol SUPERADMIN para el frontend
+    if (activeCompanyId === 1 && flatRoles.includes('ADMIN') && !flatRoles.includes('SUPERADMIN')) {
+      flatRoles.push('SUPERADMIN');
+    }
+
+    return { ...user.dataValues, roles: flatRoles, activeCompanyId };
   }
 
   signToken(user) {
     const payload = {
       sub: user.id,
-      roles: user.roles
+      roles: user.roles,
+      companyId: user.activeCompanyId || user.companyId // Prefer activeCompanyId
     }
     const token = jwt.sign(payload, config.jwtSecret);
     return {
@@ -63,7 +99,7 @@ class AuthService {
         throw boom.unauthorized();
       }
       const hash = await bcrypt.hash(newPassword, 10);
-      await service.update(user.id, {recoveryToken: null, password: hash});
+      await service.update(user.id, { recoveryToken: null, password: hash });
       return { message: 'password changed' };
     } catch (error) {
       throw boom.unauthorized();

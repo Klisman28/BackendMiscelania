@@ -1,3 +1,4 @@
+'use strict';
 const { Model, DataTypes } = require('sequelize');
 const { CASHIER_TABLE } = require('./cashier.model');
 const { EMPPLOYEE_TABLE } = require('./employee.model');
@@ -56,7 +57,13 @@ const OpeningSchema = {
         onUpdate: 'CASCADE',
         onDelete: 'CASCADE'
     },
-}
+    companyId: {
+        field: 'company_id',
+        allowNull: true,
+        type: DataTypes.INTEGER,
+        defaultValue: 1
+    }
+};
 
 class Opening extends Model {
     static associate(models) {
@@ -77,6 +84,8 @@ class Opening extends Model {
             as: 'movements',
             foreignKey: 'openingId'
         });
+
+        this.belongsTo(models.Company, { as: 'company', foreignKey: 'companyId' });
     }
 
     static config(sequelize) {
@@ -85,9 +94,8 @@ class Opening extends Model {
             tableName: OPENING_TABLE,
             modelName: 'Opening',
             timestamps: false
-        }
+        };
     }
 }
 
-
-module.exports = { OPENING_TABLE, OpeningSchema, Opening }
+module.exports = { OPENING_TABLE, OpeningSchema, Opening };

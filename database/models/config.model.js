@@ -34,9 +34,18 @@ const ConfigSchema = {
         type: DataTypes.INTEGER,
         field: 'ticket_num'
     },
+    companyId: {
+        field: 'company_id',
+        allowNull: true,
+        type: DataTypes.INTEGER,
+        defaultValue: 1
+    }
 }
 
 class Config extends Model {
+    static associate(models) {
+        this.belongsTo(models.Company, { as: 'company', foreignKey: 'companyId' });
+    }
 
     static config(sequelize) {
         return {

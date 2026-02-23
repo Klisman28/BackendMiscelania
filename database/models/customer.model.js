@@ -100,12 +100,19 @@ const CustomerSchema = {
     dni: {
         allowNull: true,
         type: DataTypes.STRING,
+    },
+    companyId: {
+        field: 'company_id',
+        allowNull: true,
+        type: DataTypes.INTEGER,
+        defaultValue: 1
     }
 }
 
 class Customer extends Model {
     static associate(models) {
         // Asociaciones futuras si son necesarias
+        this.belongsTo(models.Company, { as: 'company', foreignKey: 'companyId' });
     }
 
     static config(sequelize) {

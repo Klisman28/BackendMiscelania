@@ -67,6 +67,12 @@ const SaleSchema = {
     total: {
         allowNull: true,
         type: DataTypes.DECIMAL(8, 2)
+    },
+    companyId: {
+        field: 'company_id',
+        allowNull: true,
+        type: DataTypes.INTEGER,
+        defaultValue: 1
     }
 }
 
@@ -100,6 +106,8 @@ class Sale extends Model {
             foreignKey: "saleableId",
             constraints: false
         });
+
+        this.belongsTo(models.Company, { as: 'company', foreignKey: 'companyId' });
 
         // this.addHook("afterFind", findResult => {
         //     if (!Array.isArray(findResult)) findResult = [findResult];

@@ -54,6 +54,12 @@ const InventoryMovementSchema = {
         field: 'user_id',
         type: DataTypes.INTEGER,
         allowNull: true
+    },
+    companyId: {
+        field: 'company_id',
+        allowNull: true,
+        type: DataTypes.INTEGER,
+        defaultValue: 1
     }
 };
 
@@ -68,6 +74,7 @@ class InventoryMovement extends Model {
             foreignKey: 'warehouseId'
         });
         // Optional: Associate with User if you have a User model
+        this.belongsTo(models.Company, { as: 'company', foreignKey: 'companyId' });
     }
 
     static config(sequelize) {

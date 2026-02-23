@@ -23,6 +23,12 @@ const CashierSchema = {
         allowNull: true,
         type: DataTypes.INTEGER,
         defaultValue: 0
+    },
+    companyId: {
+        field: 'company_id',
+        allowNull: true,
+        type: DataTypes.INTEGER,
+        defaultValue: 1
     }
 }
 
@@ -32,6 +38,8 @@ class Cashier extends Model {
             as: 'openings',
             foreignKey: 'cashierId'
         });
+
+        this.belongsTo(models.Company, { as: 'company', foreignKey: 'companyId' });
     }
 
     static config(sequelize) {

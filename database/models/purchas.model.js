@@ -1,3 +1,4 @@
+'use strict';
 const { Model, DataTypes } = require('sequelize');
 const { SUPPLIER_TABLE } = require('./supplier.model');
 const { EMPPLOYEE_TABLE } = require('./employee.model');
@@ -39,13 +40,19 @@ const PurchasSchema = {
         type: DataTypes.DATEONLY,
     },
     igv: {
-        type: DataTypes.DECIMAL(8,2)
+        type: DataTypes.DECIMAL(8, 2)
     },
     total: {
         allowNull: true,
-        type: DataTypes.DECIMAL(8,2)
+        type: DataTypes.DECIMAL(8, 2)
+    },
+    companyId: {
+        field: 'company_id',
+        allowNull: true,
+        type: DataTypes.INTEGER,
+        defaultValue: 1
     }
-}
+};
 
 class Purchas extends Model {
     static associate(models) {
@@ -56,13 +63,15 @@ class Purchas extends Model {
         this.belongsTo(models.Employee, {
             as: 'employee'
         });
-        
+
         this.belongsToMany(models.Product, {
             as: 'products',
             through: models.ProductPurchas,
             foreignKey: 'purchasId',
             otherKey: 'productId'
         });
+
+        this.belongsTo(models.Company, { as: 'company', foreignKey: 'companyId' });
     }
 
     static config(sequelize) {
@@ -71,8 +80,8 @@ class Purchas extends Model {
             tableName: PURCHAS_TABLE,
             modelName: 'Purchas',
             timestamps: false
-        }
+        };
     }
 }
 
-module.exports = { PURCHAS_TABLE, PurchasSchema, Purchas }
+module.exports = { PURCHAS_TABLE, PurchasSchema, Purchas };

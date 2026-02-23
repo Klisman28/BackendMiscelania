@@ -13,7 +13,7 @@ const inventoryService = new InventoryService();
 
 router.get('/', async (req, res, next) => {
     try {
-        const warehouses = await service.find();
+        const warehouses = await service.find(req.companyId);
         res.json(warehouses);
     } catch (error) {
         next(error);
@@ -25,7 +25,7 @@ router.get('/:id',
     async (req, res, next) => {
         try {
             const { id } = req.params;
-            const warehouse = await service.findOne(id);
+            const warehouse = await service.findOne(id, req.companyId);
             res.json(warehouse);
         } catch (error) {
             next(error);
@@ -38,7 +38,7 @@ router.post('/',
     async (req, res, next) => {
         try {
             const body = req.body;
-            const newWarehouse = await service.create(body);
+            const newWarehouse = await service.create(body, req.companyId);
             res.status(201).json(newWarehouse);
         } catch (error) {
             next(error);
@@ -53,7 +53,7 @@ router.patch('/:id',
         try {
             const { id } = req.params;
             const body = req.body;
-            const warehouse = await service.update(id, body);
+            const warehouse = await service.update(id, body, req.companyId);
             res.json(warehouse);
         } catch (error) {
             next(error);
@@ -66,7 +66,7 @@ router.delete('/:id',
     async (req, res, next) => {
         try {
             const { id } = req.params;
-            await service.delete(id);
+            await service.delete(id, req.companyId);
             res.status(201).json({ id });
         } catch (error) {
             next(error);
@@ -83,9 +83,9 @@ router.get('/:id/stock',
             const { id } = req.params;
 
             // Verify warehouse exists
-            await service.findOne(id);
+            await service.findOne(id, req.companyId);
 
-            const stock = await inventoryService.getBalance(id, req.query);
+            const stock = await inventoryService.getBalance(id, req.query, req.companyId);
             res.json(stock);
         } catch (error) {
             next(error);

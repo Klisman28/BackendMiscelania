@@ -4,14 +4,14 @@ const { models, sequelize } = require('../../libs/sequelize');
 
 class InventoryService {
 
-    async addStock(data) {
+    async addStock(data, companyId) {
         // data: { warehouseId, productId, quantity, description, userId }
         const t = await sequelize.transaction();
         try {
             const { warehouseId, productId, quantity, description, userId } = data;
 
             // 1. Verify warehouse and product exist
-            const warehouse = await models.Warehouse.findByPk(warehouseId, { transaction: t });
+            const warehouse = await models.Warehouse.findOne({ where: { id: warehouseId, companyId }, transaction: t });
             if (!warehouse) throw boom.notFound('Bodega no encontrada');
             if (!warehouse.active) throw boom.badRequest('Bodega inactiva');
 
@@ -26,12 +26,13 @@ class InventoryService {
                 quantity,
                 description: description || 'Ingreso manual',
                 userId,
-                createdAt: new Date()
+                createdAt: new Date(),
+                companyId
             }, { transaction: t });
 
             // 3. Update Balance
             const balance = await models.InventoryBalance.findOne({
-                where: { warehouseId, productId },
+                where: { warehouseId, productId, companyId },
                 transaction: t
             });
 
@@ -41,7 +42,8 @@ class InventoryService {
                 await models.InventoryBalance.create({
                     warehouseId,
                     productId,
-                    quantity
+                    quantity,
+                    companyId
                 }, { transaction: t });
             }
 
@@ -54,7 +56,7 @@ class InventoryService {
         }
     }
 
-    async removeStock(data) {
+    async removeStock(data, companyId) {
         // data: { warehouseId, productId, quantity, description, userId }
         const t = await sequelize.transaction();
         try {
@@ -62,7 +64,7 @@ class InventoryService {
 
             // 1. Verify existence
             const balance = await models.InventoryBalance.findOne({
-                where: { warehouseId, productId },
+                where: { warehouseId, productId, companyId },
                 transaction: t,
                 lock: t.LOCK.UPDATE
             });
@@ -78,7 +80,8 @@ class InventoryService {
                 quantity, // Movements usually store just quantity, positive
                 description: description || 'Salida manual',
                 userId,
-                createdAt: new Date()
+                createdAt: new Date(),
+                companyId
             }, { transaction: t });
 
             // 3. Update Balance
@@ -299,7 +302,7 @@ class InventoryService {
         return transfer;
     }
 
-    async getBalance(warehouseId, query = {}) {
+    async getBalance(warehouseId, query = {}, companyId) {
         // Extract and normalize parameters
         const pageIndex = parseInt(query.pageIndex || query.page || 1, 10);
         const pageSize = Math.min(parseInt(query.pageSize || query.limit || 10, 10), 100);
@@ -315,7 +318,7 @@ class InventoryService {
 
         // Build query options
         const options = {
-            where: { warehouseId },
+            where: { warehouseId, companyId },
             limit,
             offset,
             include: [

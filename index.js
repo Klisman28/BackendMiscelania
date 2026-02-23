@@ -45,7 +45,14 @@ const corsOptions = {
 // Usar CORS con las opciones configuradas
 app.use(cors(corsOptions));
 
-app.use(express.json());
+// Middleware JSON global, excepto para webhook de Stripe que requiere raw body
+app.use((req, res, next) => {
+  if (req.originalUrl === '/api/v1/saas/webhook') {
+    next();
+  } else {
+    express.json()(req, res, next);
+  }
+});
 app.use(morgan('dev')); // Logging de peticiones en consola
 app.use('/uploads', express.static(path.join(__dirname, 'public/uploads'))); // Servir archivos estáticos
 

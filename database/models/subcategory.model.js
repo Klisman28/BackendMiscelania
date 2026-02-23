@@ -46,6 +46,12 @@ const SubcategorySchema = {
         type: DataTypes.STRING,
         unique: true
     },
+    companyId: {
+        field: 'company_id',
+        allowNull: true,
+        type: DataTypes.INTEGER,
+        defaultValue: 1
+    },
     // imageUrl: {
     //     allowNull: true,
     //     type: DataTypes.STRING,
@@ -69,7 +75,8 @@ class Subcategory extends Model {
         this.belongsTo(models.Category, {
             as: 'category'
         });
-        
+        this.belongsTo(models.Company, { as: 'company', foreignKey: 'companyId' });
+
         this.belongsToMany(models.Brand, {
             as: 'brands',
             through: models.BrandSubcategory,

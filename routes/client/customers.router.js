@@ -16,7 +16,7 @@ router.get('/',
     validatorHandler(queryCustomerSchema, 'query'),
     async (req, res, next) => {
         try {
-            const customers = await service.find(req.query);
+            const customers = await service.find(req.query, req.companyId);
             success(res, customers);
         } catch (error) {
             next(error);
@@ -29,7 +29,7 @@ router.get('/:id',
     async (req, res, next) => {
         try {
             const { id } = req.params;
-            const customer = await service.findOne(id);
+            const customer = await service.findOne(id, req.companyId);
             success(res, customer, 'Cliente encontrado con éxito');
         } catch (error) {
             next(error);
@@ -42,7 +42,7 @@ router.post('/',
     async (req, res, next) => {
         try {
             const body = req.body;
-            const customer = await service.create(body);
+            const customer = await service.create(body, req.companyId);
             success(res, customer, 'Cliente registrado con éxito', 201);
         } catch (error) {
             next(error);
@@ -57,7 +57,7 @@ router.put('/:id',
         try {
             const { id } = req.params;
             const body = req.body;
-            const customer = await service.update(id, body);
+            const customer = await service.update(id, body, req.companyId);
             success(res, customer, 'Cliente actualizado con éxito', 201);
         } catch (error) {
             next(error);
@@ -70,7 +70,7 @@ router.delete('/:id',
     async (req, res, next) => {
         try {
             const { id } = req.params;
-            await service.delete(id);
+            await service.delete(id, req.companyId);
             success(res, id, 'Cliente eliminado con éxito', 201);
         } catch (error) {
             next(error);

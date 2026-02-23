@@ -45,10 +45,11 @@ class CustomersService {
         return processed;
     }
 
-    async find(query) {
+    async find(query, companyId) {
         const { limit, offset, search, sortColumn, sortDirection } = query;
 
         const options = {
+            where: { companyId },
             order: [(sortColumn) ? [sortColumn, sortDirection] : ['id', 'DESC']]
         }
         const optionsCount = {};
@@ -60,6 +61,7 @@ class CustomersService {
 
         if (search) {
             options.where = {
+                companyId,
                 [Op.or]: [
                     { firstName: { [Op.like]: `%${search}%` } },
                     { lastName: { [Op.like]: `%${search}%` } },
@@ -78,7 +80,7 @@ class CustomersService {
         return { customers, total };
     }
 
-    async create(data) {
+    async create(data, companyId) {
         // 1. Mapear campos antiguos a nuevos si es necesario
         let mappedData = this._mapLegacyFields(data);
 
@@ -91,7 +93,7 @@ class CustomersService {
         }
 
         // 4. Crear cliente
-        const customer = await models.Customer.create(mappedData);
+        const customer = await models.Customer.create({ ...mappedData, companyId });
 
         // 5. Retornar solo los campos nuevos en la respuesta
         return {
@@ -106,8 +108,10 @@ class CustomersService {
         };
     }
 
-    async findOne(id) {
-        const customer = await models.Customer.findByPk(id);
+    async findOne(id, companyId) {
+        const customer = await models.Customer.findOne({
+            where: { id, companyId }
+        });
         if (!customer) {
             throw boom.notFound('No se encontró ningún cliente');
         }
@@ -131,9 +135,9 @@ class CustomersService {
         };
     }
 
-    async update(id, changes) {
+    async update(id, changes, companyId) {
         // 1. Verificar que existe
-        const customer = await models.Customer.findByPk(id);
+        const customer = await this.findOne(id, companyId);
         if (!customer) {
             throw boom.notFound('No se encontró ningún cliente');
         }
@@ -167,8 +171,8 @@ class CustomersService {
         };
     }
 
-    async delete(id) {
-        const customer = await models.Customer.findByPk(id);
+    async delete(id, companyId) {
+        const customer = await this.findOne(id, companyId);
         if (!customer) {
             throw boom.notFound('No se encontró ningún cliente');
         }

@@ -33,15 +33,17 @@ class UsersService {
 
         if (search) {
             options.where = {
-                username: {
-                    [Op.like]: `%${search}%`
-                }
+                [Op.or]: [
+                    { username: { [Op.like]: `%${search}%` } },
+                    { email: { [Op.like]: `%${search}%` } }
+                ]
             }
 
             optionsCount.where = {
-                username: {
-                    [Op.like]: `%${search}%`
-                }
+                [Op.or]: [
+                    { username: { [Op.like]: `%${search}%` } },
+                    { email: { [Op.like]: `%${search}%` } }
+                ]
             }
         }
 
@@ -57,8 +59,14 @@ class UsersService {
     }
 
     async create(data) {
-        const hash = await bcrypt.hash(data.password, 10);
+        // Validación de Seats SaaS
+        // Si se crea activo, validar límite
+        const isActive = data.status !== false; // Default true si undefined
+        if (isActive && data.companyId) {
+            await this._checkSeatsLimit(data.companyId);
+        }
 
+        const hash = await bcrypt.hash(data.password, 10);
         const userData = {
             ...data,
             password: hash,
@@ -137,7 +145,11 @@ class UsersService {
 
     async update(id, changes) {
         let user = await this.findOne(id);
-        // const hash = await bcrypt.hash(changes.password, 10);
+
+        // Validación de Seats SaaS al activar
+        if (changes.status === true && user.status !== true && user.companyId) {
+            await this._checkSeatsLimit(user.companyId);
+        }
 
         user = await user.update(changes);
 
@@ -177,6 +189,28 @@ class UsersService {
         const user = await this.findOne(id);
         await user.destroy();
         return { id };
+    }
+    async _checkSeatsLimit(companyId) {
+        const company = await models.Company.findByPk(companyId);
+        if (!company) return; // Si no hay company, no aplicamos regla
+
+        // Contar usuarios activos
+        const activeUsers = await models.User.count({
+            where: {
+                companyId,
+                status: true
+            }
+        });
+
+        // NOTA: Si estamos creando uno nuevo activo, activeUsers aún no lo incluye.
+        // Si estamos updateando uno inactivo a activo, activeUsers tampoco lo incluye (status=false en DB).
+        // Por tanto, la validación lógica es: Si tenemos X usuarios y el límite es X, NO podemos agregar otro.
+        // Si activeUsers < company.seats, podemos crear uno más.
+        // Si activeUsers >= company.seats, NO podemos.
+
+        if (activeUsers >= company.seats) {
+            throw boom.conflict(`Límite de usuarios alcanzado (${company.seats}). Actualiza tu plan para agregar más.`);
+        }
     }
 }
 

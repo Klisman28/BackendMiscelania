@@ -13,6 +13,12 @@ const ProductSchema = {
         primaryKey: true,
         type: DataTypes.INTEGER
     },
+    companyId: {
+        field: 'company_id',
+        allowNull: true,
+        type: DataTypes.INTEGER,
+        defaultValue: 1
+    },
     sku: {
         allowNull: true,
         type: DataTypes.STRING,
@@ -28,15 +34,15 @@ const ProductSchema = {
         unique: true
     },
     cost: {
-        type: DataTypes.DECIMAL(8,2),
+        type: DataTypes.DECIMAL(8, 2),
         allowNull: true
     },
     utility: {
-        type: DataTypes.DECIMAL(8,2),
+        type: DataTypes.DECIMAL(8, 2),
         allowNull: true
     },
     price: {
-        type: DataTypes.DECIMAL(8,2),
+        type: DataTypes.DECIMAL(8, 2),
         allowNull: true
     },
     stock: {
@@ -57,14 +63,14 @@ const ProductSchema = {
         allowNull: true,
         type: DataTypes.DATEONLY,
         field: 'expirationDate'
-      },
+    },
     hasExpiration: {
         type: DataTypes.BOOLEAN,
         defaultValue: false,
     },
-     description: { 
-        type: DataTypes.TEXT,  
-        allowNull: true,  
+    description: {
+        type: DataTypes.TEXT,
+        allowNull: true,
     },
     brandId: {
         field: 'brand_id',
@@ -121,6 +127,7 @@ const ProductSchema = {
 
 class Product extends Model {
     static associate(models) {
+        this.belongsTo(models.Company, { as: 'company', foreignKey: 'companyId' });
         this.belongsTo(models.Brand, {
             as: 'brand'
         });

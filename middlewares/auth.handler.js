@@ -49,7 +49,10 @@ function checkRoles(...roles) {
         }
 
         // Verificar si el usuario tiene al menos uno de los roles requeridos
-        const hasRole = user.roles.some(userRole => roles.includes(userRole));
+        // Se normaliza a mayúsculas para evitar problemas de case-sensitivity
+        const hasRole = user.roles.some(userRole =>
+            roles.map(r => r.toUpperCase()).includes(userRole.toUpperCase())
+        );
 
         if (hasRole) {
             next();

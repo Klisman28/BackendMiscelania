@@ -1,3 +1,4 @@
+'use strict';
 const { Model, DataTypes } = require('sequelize');
 const { WAREHOUSE_TABLE } = require('./warehouse.model');
 
@@ -34,7 +35,7 @@ const TransferSchema = {
     },
     status: {
         allowNull: false,
-        type: DataTypes.STRING, // COMPLETED, PENDING (if implementing approval workflow, but simple version is just COMPLETED)
+        type: DataTypes.STRING,
         defaultValue: 'COMPLETED'
     },
     date: {
@@ -50,6 +51,12 @@ const TransferSchema = {
     observation: {
         type: DataTypes.TEXT,
         allowNull: true
+    },
+    companyId: {
+        field: 'company_id',
+        allowNull: true,
+        type: DataTypes.INTEGER,
+        defaultValue: 1
     }
 };
 
@@ -64,6 +71,7 @@ class Transfer extends Model {
             otherKey: 'productId'
         });
         this.hasMany(models.TransferItem, { as: 'items', foreignKey: 'transferId' });
+        this.belongsTo(models.Company, { as: 'company', foreignKey: 'companyId' });
     }
 
     static config(sequelize) {
@@ -72,7 +80,7 @@ class Transfer extends Model {
             tableName: TRANSFER_TABLE,
             modelName: 'Transfer',
             timestamps: true
-        }
+        };
     }
 }
 

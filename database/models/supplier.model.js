@@ -31,6 +31,12 @@ const SupplierSchema = {
     },
     address: {
         type: DataTypes.STRING,
+    },
+    companyId: {
+        field: 'company_id',
+        allowNull: true,
+        type: DataTypes.INTEGER,
+        defaultValue: 1
     }
 }
 
@@ -41,6 +47,9 @@ class Supplier extends Model {
     //         foreignKey: 'categoryId'
     //     });
     // }
+    static associate(models) {
+        this.belongsTo(models.Company, { as: 'company', foreignKey: 'companyId' });
+    }
 
     static config(sequelize) {
         return {

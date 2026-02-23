@@ -4,15 +4,21 @@ const USER_TABLE = 'users';
 
 const UserSchema = {
   id: {
-    allowNull: true,
+    allowNull: false,
     autoIncrement: true,
     primaryKey: true,
     type: DataTypes.INTEGER
   },
   username: {
-    allowNull: true,
+    allowNull: false,
     type: DataTypes.STRING,
     unique: true,
+  },
+  companyId: {
+    field: 'company_id',
+    allowNull: true, // Será false en el futuro cuando limpiemos datos
+    type: DataTypes.INTEGER,
+    defaultValue: 1
   },
   password: {
     allowNull: true,
@@ -63,6 +69,10 @@ class User extends Model {
       through: models.RoleUser,
       foreignKey: 'userId',
       otherKey: 'roleId'
+    });
+    this.belongsTo(models.Company, {
+      as: 'company',
+      foreignKey: 'companyId'
     });
 
     // One-to-many: User -> RoleUser (optional, útil para queries directas)

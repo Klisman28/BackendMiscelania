@@ -1,9 +1,11 @@
 const { Brand, BrandSchema } = require('./brand.model');
+const { Company, CompanySchema } = require('./company.model');
 const { Category, CategorySchema } = require('./category.model');
 const { User, UserSchema } = require('./user.model');
 const { Subcategory, SubcategorySchema } = require('./subcategory.model');
 const { Role, RoleSchema } = require('./role.model');
 const { RoleUser, RoleUserSchema } = require('./role-user.model');
+const { CompanyUser, CompanyUserSchema } = require('./company-user.model'); // Added
 const { BrandSubcategory, BrandSubcategorySchema } = require('./brand-subcategory.model');
 const { Product, ProductSchema } = require('./product.model');
 const { Unit, UnitSchema } = require('./unit.model');
@@ -29,15 +31,19 @@ const { InventoryMovement, InventoryMovementSchema } = require('./inventory-move
 const { Transfer, TransferSchema } = require('./transfer.model');
 const { TransferItem, TransferItemSchema } = require('./transfer-item.model');
 const { CashMovement, CashMovementSchema } = require('./cash-movement.model');
+const { Plan, PlanSchema } = require('./plan.model');
+const { Subscription, SubscriptionSchema } = require('./subscription.model');
 
 function setupModels(sequelize) {
     // Inicializations
+    Company.init(CompanySchema, Company.config(sequelize));
     Brand.init(BrandSchema, Brand.config(sequelize));
     Category.init(CategorySchema, Category.config(sequelize));
     Subcategory.init(SubcategorySchema, Subcategory.config(sequelize));
     User.init(UserSchema, User.config(sequelize));
     Role.init(RoleSchema, Role.config(sequelize));
     RoleUser.init(RoleUserSchema, RoleUser.config(sequelize));
+    CompanyUser.init(CompanyUserSchema, CompanyUser.config(sequelize)); // Added
     BrandSubcategory.init(BrandSubcategorySchema, BrandSubcategory.config(sequelize));
     Product.init(ProductSchema, Product.config(sequelize));
     Unit.init(UnitSchema, Unit.config(sequelize));
@@ -63,15 +69,19 @@ function setupModels(sequelize) {
     Transfer.init(TransferSchema, Transfer.config(sequelize));
     TransferItem.init(TransferItemSchema, TransferItem.config(sequelize));
     CashMovement.init(CashMovementSchema, CashMovement.config(sequelize));
+    Plan.init(PlanSchema, Plan.config(sequelize));
+    Subscription.init(SubscriptionSchema, Subscription.config(sequelize));
 
 
 
     // Associations
+    Company.associate(sequelize.models);
     Category.associate(sequelize.models);
     Subcategory.associate(sequelize.models);
     User.associate(sequelize.models);
     Role.associate(sequelize.models);
     RoleUser.associate(sequelize.models);
+    CompanyUser.associate(sequelize.models); // Added
     Product.associate(sequelize.models);
     Property.associate(sequelize.models);
     Option.associate(sequelize.models);
@@ -86,6 +96,7 @@ function setupModels(sequelize) {
     Transfer.associate(sequelize.models);
     TransferItem.associate(sequelize.models);
     CashMovement.associate(sequelize.models);
+    Subscription.associate(sequelize.models);
 
     //slugs
     Brand.slugify(sequelize.models);

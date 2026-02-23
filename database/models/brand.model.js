@@ -23,11 +23,18 @@ const BrandSchema = {
     slug: {
         type: DataTypes.STRING,
         unique: true
+    },
+    companyId: {
+        field: 'company_id',
+        allowNull: true,
+        type: DataTypes.INTEGER,
+        defaultValue: 1
     }
 }
 
 class Brand extends Model {
-    static associate() {
+    static associate(models) {
+        this.belongsTo(models.Company, { as: 'company', foreignKey: 'companyId' });
         // this.belongsTo(models.Category, {
         //     as: 'category'
         // });

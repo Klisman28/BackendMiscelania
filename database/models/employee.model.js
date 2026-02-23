@@ -1,3 +1,4 @@
+'use strict';
 const { Model, DataTypes } = require('sequelize');
 
 const EMPPLOYEE_TABLE = 'employees';
@@ -14,10 +15,11 @@ const EmployeeSchema = {
         type: DataTypes.STRING,
         get() {
             const newValue = this.getDataValue('name');
+            if (!newValue) return newValue;
             return newValue[0].toUpperCase() + newValue.slice(1);
         },
         set(value) {
-            this.setDataValue('name', value.toLowerCase().trim());
+            this.setDataValue('name', value ? value.toLowerCase().trim() : value);
         }
     },
     firstLastname: {
@@ -26,10 +28,11 @@ const EmployeeSchema = {
         field: 'first_lastname',
         get() {
             const newValue = this.getDataValue('firstLastname');
+            if (!newValue) return newValue;
             return newValue[0].toUpperCase() + newValue.slice(1);
         },
         set(value) {
-            this.setDataValue('firstLastname', value.toLowerCase().trim());
+            this.setDataValue('firstLastname', value ? value.toLowerCase().trim() : value);
         }
     },
     secondLastname: {
@@ -38,10 +41,11 @@ const EmployeeSchema = {
         field: 'second_lastname',
         get() {
             const newValue = this.getDataValue('secondLastname');
+            if (!newValue) return newValue;
             return newValue[0].toUpperCase() + newValue.slice(1);
         },
         set(value) {
-            this.setDataValue('secondLastname', value.toLowerCase().trim());
+            this.setDataValue('secondLastname', value ? value.toLowerCase().trim() : value);
         }
     },
     fullname: {
@@ -60,10 +64,11 @@ const EmployeeSchema = {
         type: DataTypes.STRING,
         get() {
             const newValue = this.getDataValue('gender');
+            if (!newValue) return newValue;
             return newValue[0].toUpperCase() + newValue.slice(1);
         },
         set(value) {
-            this.setDataValue('gender', value.toLowerCase().trim());
+            this.setDataValue('gender', value ? value.toLowerCase().trim() : value);
         }
     },
     email: {
@@ -74,24 +79,25 @@ const EmployeeSchema = {
     },
     address: {
         type: DataTypes.STRING,
+    },
+    companyId: {
+        field: 'company_id',
+        allowNull: true,
+        type: DataTypes.INTEGER,
+        defaultValue: 1
     }
-}
+};
 
 class Employee extends Model {
-    // static associate(models) {
-    //     this.hasMany(models.Subcategory, {
-    //         as: 'subcategories',
-    //         foreignKey: 'categoryId'
-    //     });
-    // }
     static associate(models) {
-        // hasOne polimórfico (se suele hacer constraints: false):
+        // hasOne polimórfico
         this.hasOne(models.User, {
-          as: 'user',
-          foreignKey: 'userableId',
-          constraints: false
+            as: 'user',
+            foreignKey: 'userableId',
+            constraints: false
         });
-      }
+        this.belongsTo(models.Company, { as: 'company', foreignKey: 'companyId' });
+    }
 
     static config(sequelize) {
         return {
@@ -99,8 +105,8 @@ class Employee extends Model {
             tableName: EMPPLOYEE_TABLE,
             modelName: 'Employee',
             timestamps: false
-        }
+        };
     }
 }
 
-module.exports = { EMPPLOYEE_TABLE, EmployeeSchema, Employee }
+module.exports = { EMPPLOYEE_TABLE, EmployeeSchema, Employee };

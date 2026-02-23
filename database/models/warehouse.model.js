@@ -26,6 +26,12 @@ const WarehouseSchema = {
         allowNull: false,
         type: DataTypes.BOOLEAN,
         defaultValue: true
+    },
+    companyId: {
+        field: 'company_id',
+        allowNull: true,
+        type: DataTypes.INTEGER,
+        defaultValue: 1
     }
 };
 
@@ -39,6 +45,7 @@ class Warehouse extends Model {
             as: 'sales',
             foreignKey: 'warehouseId'
         });
+        this.belongsTo(models.Company, { as: 'company', foreignKey: 'companyId' });
     }
 
     static config(sequelize) {

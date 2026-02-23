@@ -25,8 +25,10 @@ const customersRouter = require('./client/customers.router');
 const enterprisesRouter = require('./client/enterprises.router');
 
 const { checkRoles } = require('../middlewares/auth.handler');
+const { tenantGuard } = require('../middlewares/tenant.handler');
 const notesRouter = require('./notes/notes.router');
 const reportRouter = require('./report/reports.router');
+const saasRouter = require('./saas/saas.router');
 
 function apiRouter(app) {
     const router = express.Router();
@@ -43,118 +45,138 @@ function apiRouter(app) {
 
     router.use('/report',
         passport.authenticate('jwt', { session: false }),
+        tenantGuard,
         checkRoles('almacenero', 'admin'),
         reportRouter
     );
     router.use('/brands',
         passport.authenticate('jwt', { session: false }),
+        tenantGuard,
         checkRoles('almacenero', 'admin'),
         brandsRouter
     );
 
     router.use('/categories', passport.authenticate('jwt',
         { session: false }),
+        tenantGuard,
         checkRoles('almacenero', 'admin'),
         categoriesRouter
     );
 
     router.use('/subcategories', passport.authenticate('jwt',
         { session: false }),
+        tenantGuard,
         checkRoles('almacenero', 'admin'),
         subcategoriesRouter
     );
 
     router.use('/properties', passport.authenticate('jwt',
         { session: false }),
+        tenantGuard,
         checkRoles('almacenero', 'admin'),
         propertiesRouter
     );
 
     router.use('/products', passport.authenticate('jwt',
         { session: false }),
+        tenantGuard,
         checkRoles('almacenero', 'cajero', 'admin'),
         productsRouter
     );
 
     router.use('/features', passport.authenticate('jwt',
         { session: false }),
+        tenantGuard,
         checkRoles('almacenero', 'admin'),
         featuresRouter
     );
 
     router.use('/employees', passport.authenticate('jwt',
         { session: false }),
+        tenantGuard,
         checkRoles('admin', 'admin'),
         employeesRouter
     );
 
     router.use('/suppliers', passport.authenticate('jwt',
         { session: false }),
+        tenantGuard,
         checkRoles('admin', 'admin'),
         suppliersRouter
     );
 
     router.use('/purchases', passport.authenticate('jwt',
         { session: false }),
+        tenantGuard,
         checkRoles('almacenero', 'admin'),
         purchasesRouter
     );
 
     router.use('/customers', passport.authenticate('jwt',
         { session: false }),
+        tenantGuard,
         checkRoles('almacenero', 'admin'),
         customersRouter
     );
 
     router.use('/enterprises', passport.authenticate('jwt',
         { session: false }),
+        tenantGuard,
         checkRoles('almacenero', 'admin'),
         enterprisesRouter
     );
 
     router.use('/openings', passport.authenticate('jwt',
         { session: false }),
+        tenantGuard,
         checkRoles('cajero', 'admin'),
         openingsRouter
     );
 
     router.use('/cashiers', passport.authenticate('jwt',
         { session: false }),
+        tenantGuard,
         checkRoles('cajero', 'admin'),
         cashiersRouter
     );
 
     router.use('/sales', passport.authenticate('jwt',
         { session: false }),
+        tenantGuard,
         checkRoles('cajero', 'admin'),
         salesRouter
     );
 
     router.use('/configs', passport.authenticate('jwt',
         { session: false }),
+        tenantGuard,
         checkRoles('cajero', 'admin'),
         configsRouter
     );
 
     router.use('/notes', passport.authenticate('jwt',
         { session: false }),
+        tenantGuard,
         checkRoles('cajero', 'admin'),
         notesRouter
     );
     router.use('/tickets', passport.authenticate('jwt',
         { session: false }),
+        tenantGuard,
         checkRoles('cajero', 'admin'),
         notesRouter
     );
 
     router.use('/warehouses', passport.authenticate('jwt',
         { session: false }),
+        tenantGuard,
         checkRoles('almacenero', 'admin'),
         warehousesRouter
     );
 
     router.use('/inventory', passport.authenticate('jwt',
         { session: false }),
+        tenantGuard,
         checkRoles('almacenero', 'admin'),
         inventoryRouter
     );
@@ -163,6 +185,10 @@ function apiRouter(app) {
 
     router.use('/users', usersRouter);
     router.use('/auth', authRouter);
+
+    // ── Rutas públicas SaaS (sin autenticación) ──────────────────────────
+    router.use('/saas', require('./saas/webhook.router')); // Webhook raw body
+    router.use('/saas', saasRouter);
 }
 
 module.exports = apiRouter;

@@ -6,11 +6,14 @@ const { processImage, deleteFile } = require('../../utils/file');
 
 class ProductsService {
     // ... existing find methods ...
-    async find(query) {
+    async find(query, companyId) {
+        if (!companyId) {
+            throw boom.badRequest('Company ID is required');
+        }
         const { limit, offset, search, sortColumn, sortDirection, filterField, filterType, filterValue } = query;
 
         const options = {
-            where: {},
+            where: { companyId },
             include: [
                 {
                     model: models.Brand,
@@ -30,7 +33,7 @@ class ProductsService {
             ],
             order: [(sortColumn) ? [sortColumn, sortDirection] : ['id', 'DESC']]
         }
-        const optionsCount = { where: {} };
+        const optionsCount = { where: { companyId } };
 
         if (limit && offset) {
             options.limit = parseInt(limit);
@@ -125,12 +128,12 @@ class ProductsService {
         }
     }
 
-    async search(query) {
+    async search(query, companyId) {
         // ... (keep as is) ...
         const { limit, offset, search } = query;
 
         const options = {
-            where: {},
+            where: { companyId },
             include: [
                 {
                     model: models.Brand,
@@ -172,32 +175,33 @@ class ProductsService {
     }
 
 
-    async create(data, isQuickMode = false, file = null) {
+    async create(data, isQuickMode = false, file = null, companyId) {
         // 1. Validar que el SKU no exista
         if (data.sku) {
             const existingProduct = await models.Product.findOne({
-                where: { sku: data.sku }
+                where: { sku: data.sku, companyId }
             });
             if (existingProduct) {
                 throw boom.conflict(`El SKU "${data.sku}" ya está registrado en el producto: ${existingProduct.name}`);
             }
         }
 
-        const productData = { ...data };
+        const productData = { ...data, companyId };
 
         // Si es modo rápido, aplicar defaults
         if (isQuickMode) {
             // 1. Si no viene brandId, buscar/crear marca "GENÉRICA"
             if (!productData.brandId) {
                 let genericBrand = await models.Brand.findOne({
-                    where: { name: 'GENÉRICA' }
+                    where: { name: 'GENÉRICA', companyId }
                 });
 
                 if (!genericBrand) {
                     // Crear marca genérica una sola vez
                     genericBrand = await models.Brand.create({
                         name: 'GENÉRICA',
-                        code: 'GEN'
+                        code: 'GEN',
+                        companyId
                     });
                 }
 
@@ -249,16 +253,19 @@ class ProductsService {
         return createdProduct;
     }
 
-    async findOne(id) {
-        const product = await models.Product.findByPk(id);
+    async findOne(id, companyId) {
+        const product = await models.Product.findOne({
+            where: { id, companyId },
+            include: ['brand', 'subcategory', 'unit'] // Incluir relaciones para detalle completo si se necesita
+        });
         if (!product) {
             throw boom.notFound('No se encontro ningun producto');
         }
         return product;
     }
 
-    async update(id, changes, file = null) {
-        let product = await this.findOne(id);
+    async update(id, changes, file = null, companyId) {
+        let product = await this.findOne(id, companyId);
         const updates = { ...changes };
 
         // Asegurarse de que expirationDate solo se guarde si hasExpiration es true
@@ -285,8 +292,8 @@ class ProductsService {
         return product;
     }
 
-    async delete(id) {
-        const product = await this.findOne(id);
+    async delete(id, companyId) {
+        const product = await this.findOne(id, companyId);
 
         // Si hay una imagen, borrarla
         if (product.imageUrl) {
@@ -298,8 +305,10 @@ class ProductsService {
         return { id };
     }
 
-    async findUnits() {
-        const units = await models.Unit.findAll();
+    async findUnits(companyId) {
+        const units = await models.Unit.findAll({
+            where: { companyId }
+        });
         return units;
     }
 }
