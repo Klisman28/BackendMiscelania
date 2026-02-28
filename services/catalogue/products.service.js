@@ -3,7 +3,7 @@ const { Op } = require('sequelize');
 const { models } = require('../../libs/sequelize');
 const { PRODUCT_STATUS } = require('../../database/models/product.model');
 
-const { processImage, deleteFile } = require('../../utils/file');
+const { processImage, deleteFile, sharp } = require('../../utils/file');
 const InventoryService = require('../transaction/inventory.service');
 
 class ProductsService {
@@ -265,6 +265,9 @@ class ProductsService {
 
         // Procesar imagen si existe
         if (file) {
+            if (!sharp) {
+                throw boom.internal('Procesamiento de imagen no disponible');
+            }
             const fileName = await processImage(file.buffer);
             const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
             productData.imageUrl = `${baseUrl}/uploads/products/${fileName}`;
@@ -332,6 +335,9 @@ class ProductsService {
 
         // Procesar imagen si existe
         if (file) {
+            if (!sharp) {
+                throw boom.internal('Procesamiento de imagen no disponible');
+            }
             if (product.imageUrl) {
                 const oldFileName = product.imageUrl.split('/').pop();
                 deleteFile(oldFileName);

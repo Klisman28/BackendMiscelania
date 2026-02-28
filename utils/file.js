@@ -1,11 +1,21 @@
 const fs = require('fs');
 const path = require('path');
-const sharp = require('sharp');
 const boom = require('@hapi/boom');
+
+let sharp = null;
+try {
+    sharp = require('sharp');
+} catch (error) {
+    console.warn('Warning: sharp is not installed. Image processing is disabled.');
+}
 
 // Process image using Sharp and save to disk
 const processImage = async (fileBuffer, directory = 'products') => {
     try {
+        if (!sharp) {
+            throw boom.internal('Procesamiento de imagen no disponible');
+        }
+
         const timestamp = Date.now();
         const random = Math.floor(Math.random() * 1000);
         const fileName = `product-${timestamp}-${random}.webp`;
@@ -27,6 +37,7 @@ const processImage = async (fileBuffer, directory = 'products') => {
 
         return fileName;
     } catch (error) {
+        if (boom.isBoom(error)) throw error;
         throw boom.internal('Error processing the image.', error);
     }
 };
@@ -38,4 +49,5 @@ const deleteFile = (fileName, directory = 'products') => {
     }
 };
 
-module.exports = { processImage, deleteFile };
+module.exports = { processImage, deleteFile, sharp };
+
