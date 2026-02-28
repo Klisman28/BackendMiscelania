@@ -1,8 +1,13 @@
 const boom = require('@hapi/boom');
 const { Op } = require('sequelize');
 const { sequelize, Sequelize, models } = require('../../libs/sequelize');
+const InventoryService = require('./inventory.service');
 
 class SalesService {
+  constructor() {
+    this.inventoryService = new InventoryService();
+  }
+
   async find(query, companyId) {
     const {
       limit,
@@ -279,8 +284,8 @@ class SalesService {
           // **Restar** stock de la bodega
           await balance.decrement('quantity', { by: item.quantity, transaction: t });
 
-          // **Restar** stock global del producto
-          await product.decrement('stock', { by: item.quantity, transaction: t });
+          // **Sincronizar** stock global del producto con la base calculada real
+          await this.inventoryService.syncProductStock(item.productId, companyId, t);
 
           // Registrar Movimiento SALE
           await models.InventoryMovement.create({
@@ -477,8 +482,8 @@ class SalesService {
             }, { transaction: t });
           }
 
-          // Restaurar stock global del producto
-          await product.increment('stock', { by: quantity, transaction: t });
+          // Restaurar stock global del producto de forma precisa
+          await this.inventoryService.syncProductStock(product.id, companyId, t);
 
           // Registrar Movimiento
           await models.InventoryMovement.create({
@@ -556,8 +561,8 @@ class SalesService {
             }, { transaction: t });
           }
 
-          // Restaurar stock global del producto
-          await product.increment('stock', { by: quantity, transaction: t });
+          // Restaurar stock global del producto de forma precisa
+          await this.inventoryService.syncProductStock(product.id, companyId, t);
 
           // Registrar Movimiento
           await models.InventoryMovement.create({

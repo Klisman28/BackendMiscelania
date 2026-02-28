@@ -3,10 +3,14 @@ const boom = require('@hapi/boom');
 const { Op } = require('sequelize');
 const { models, sequelize } = require('../../libs/sequelize');
 const UsersService = require('../../services/organization/users.service');
-
+const InventoryService = require('./inventory.service');
 const service = new UsersService();
 
 class PurchasesService {
+  constructor() {
+    this.inventoryService = new InventoryService();
+  }
+
   async find(query, companyId) {
     const { limit, offset, search, sortColumn, sortDirection } = query;
     const options = {
@@ -92,10 +96,39 @@ class PurchasesService {
             transaction: t,
           });
 
-          await models.Product.increment(
-            { stock: item.quantity },
-            { where: { id: item.productId }, transaction: t }
-          );
+          // Ensure InventoryBalance exists (purchases shouldn't magically augment global without balance)
+          const balance = await models.InventoryBalance.findOne({
+            where: { warehouseId: safeData.warehouseId, productId: item.productId, companyId },
+            transaction: t,
+            lock: t.LOCK.UPDATE
+          });
+          if (balance) {
+            await balance.increment('quantity', { by: item.quantity, transaction: t });
+          } else {
+            if (!safeData.warehouseId) throw boom.badRequest('warehouseId es requerido al comprar');
+            await models.InventoryBalance.create({
+              warehouseId: safeData.warehouseId,
+              productId: item.productId,
+              quantity: item.quantity,
+              companyId
+            }, { transaction: t });
+          }
+
+          // Register Movement
+          await models.InventoryMovement.create({
+            productId: item.productId,
+            warehouseId: safeData.warehouseId,
+            type: 'IN', // Purchase
+            quantity: item.quantity,
+            referenceId: purchas.id.toString(),
+            description: `Compra Proveedor`,
+            userId,
+            createdAt: new Date(),
+            companyId
+          }, { transaction: t });
+
+          // Sincronizar Global
+          await this.inventoryService.syncProductStock(item.productId, companyId, t);
         }
       }
 
@@ -132,10 +165,20 @@ class PurchasesService {
       if (purchas.products?.length) {
         for (const p of purchas.products) {
           const qty = p.item.quantity;
-          await models.Product.decrement(
-            { stock: qty },
-            { where: { id: p.id }, transaction: t }
-          );
+
+          const balance = await models.InventoryBalance.findOne({
+            where: { warehouseId: purchas.warehouseId, productId: p.id, companyId },
+            transaction: t,
+            lock: t.LOCK.UPDATE
+          });
+          if (balance) await balance.decrement('quantity', { by: qty, transaction: t });
+
+          await models.InventoryMovement.create({
+            productId: p.id, warehouseId: purchas.warehouseId, type: 'OUT',
+            quantity: qty, description: `Reversión Act. Compra`, userId: null, companyId
+          }, { transaction: t });
+
+          await this.inventoryService.syncProductStock(p.id, companyId, t);
         }
       }
 
@@ -161,10 +204,36 @@ class PurchasesService {
             transaction: t,
           });
 
-          await models.Product.increment(
-            { stock: item.quantity },
-            { where: { id: item.productId }, transaction: t }
-          );
+          const balance = await models.InventoryBalance.findOne({
+            where: { warehouseId: changes.warehouseId || purchas.warehouseId, productId: item.productId, companyId },
+            transaction: t,
+            lock: t.LOCK.UPDATE
+          });
+          if (balance) {
+            await balance.increment('quantity', { by: item.quantity, transaction: t });
+          } else {
+            await models.InventoryBalance.create({
+              warehouseId: changes.warehouseId || purchas.warehouseId,
+              productId: item.productId,
+              quantity: item.quantity,
+              companyId
+            }, { transaction: t });
+          }
+
+          // Register Movement
+          await models.InventoryMovement.create({
+            productId: item.productId,
+            warehouseId: changes.warehouseId || purchas.warehouseId,
+            type: 'IN', // Purchase
+            quantity: item.quantity,
+            referenceId: purchas.id.toString(),
+            description: `Actualización Compra Proveedor`,
+            userId: null,
+            createdAt: new Date(),
+            companyId
+          }, { transaction: t });
+
+          await this.inventoryService.syncProductStock(item.productId, companyId, t);
         }
       }
 

@@ -10,9 +10,11 @@ class InventoryService {
         try {
             const { warehouseId, productId, quantity, description, userId } = data;
 
+            if (!warehouseId) throw boom.badRequest('warehouseId es requerido');
+
             // 1. Verify warehouse and product exist
             const warehouse = await models.Warehouse.findOne({ where: { id: warehouseId, companyId }, transaction: t });
-            if (!warehouse) throw boom.notFound('Bodega no encontrada');
+            if (!warehouse) throw boom.notFound('Bodega no encontrada o no pertenece a la empresa');
             if (!warehouse.active) throw boom.badRequest('Bodega inactiva');
 
             // Lock product row to prevent race conditions
@@ -59,7 +61,7 @@ class InventoryService {
             }
 
             // 4. Update global product stock
-            await product.increment('stock', { by: quantity, transaction: t });
+            await this.syncProductStock(productId, companyId, t);
 
             await t.commit();
             return { message: 'Stock agregado correctamente' };
@@ -75,6 +77,8 @@ class InventoryService {
         const t = await sequelize.transaction();
         try {
             const { warehouseId, productId, quantity, description, userId } = data;
+
+            if (!warehouseId) throw boom.badRequest('warehouseId es requerido');
 
             // 1. Verify existence
             const balance = await models.InventoryBalance.findOne({
@@ -101,13 +105,8 @@ class InventoryService {
             // 3. Update Balance
             await balance.decrement('quantity', { by: quantity, transaction: t });
 
-            // 4. Update global product stock (with lock)
-            // NOTE: removeStock se permite incluso para productos INACTIVE/ARCHIVED
-            // para poder dejar el stock en 0 (ej: ajustes, salidas de mercadería)
-            const product = await models.Product.scope('withArchived').findByPk(productId, { transaction: t, lock: t.LOCK.UPDATE });
-            if (product) {
-                await product.decrement('stock', { by: quantity, transaction: t });
-            }
+            // 4. Update global product stock
+            await this.syncProductStock(productId, companyId, t);
 
             await t.commit();
             return { message: 'Stock retirado correctamente' };
@@ -212,12 +211,14 @@ class InventoryService {
                     companyId
                 }, { transaction: t });
 
-                // Create Transfer Item
                 await models.TransferItem.create({
                     transferId: transfer.id,
                     productId,
                     quantity
                 }, { transaction: t });
+
+                // Sync the global product stock just in case this fixed some local anomaly
+                await this.syncProductStock(productId, companyId, t);
             }
 
             await t.commit();
@@ -463,6 +464,27 @@ class InventoryService {
         if (offset) options.offset = offset;
 
         return await models.InventoryMovement.findAll(options);
+    }
+
+    async syncProductStock(productId, companyId, t) {
+        // Enforce consistent sync by summing balances for this specific company
+        const sum = await models.InventoryBalance.sum('quantity', {
+            where: { productId, companyId },
+            transaction: t
+        });
+
+        const stock = sum || 0;
+
+        await models.Product.update(
+            { stock },
+            {
+                where: { id: productId }, // Product is global or company-specific depending on your schema. Assuming companyId exists or globally applied
+                transaction: t,
+                hooks: false
+            }
+        );
+
+        return stock;
     }
 }
 
