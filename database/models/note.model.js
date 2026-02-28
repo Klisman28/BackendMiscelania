@@ -6,28 +6,59 @@ const NOTE_TABLE = 'Notes';
 // Definición del esquema de columnas
 const NoteSchema = {
   id: {
-    allowNull: true,
+    allowNull: false,
     autoIncrement: true,
     primaryKey: true,
     type: DataTypes.INTEGER,
   },
-  text: {
-    allowNull: true,
-    type: DataTypes.STRING,
-  },
-  completed: {
+  orderDate: {
     allowNull: false,
-    type: DataTypes.BOOLEAN,
-    defaultValue: false, // Por defecto la nota está pendiente
+    type: DataTypes.DATEONLY, // fecha de pedido
+    field: 'order_date',
+  },
+  dueDate: {
+    allowNull: false,
+    type: DataTypes.DATEONLY, // fecha finalización
+    field: 'due_date',
+  },
+  clientName: {
+    allowNull: false,
+    type: DataTypes.STRING(150), // nombre del cliente
+    field: 'client_name',
+  },
+  phone: {
+    allowNull: false,
+    type: DataTypes.STRING(20), // número teléfono
+  },
+  designDescription: {
+    allowNull: false,
+    type: DataTypes.TEXT, // descripción del diseño
+    field: 'design_description',
+  },
+  status: {
+    allowNull: false,
+    type: DataTypes.STRING(50),
+    defaultValue: 'INICIO', // 'INICIO' | 'PROGRESO' | 'FINALIZADO'
+  },
+  companyId: { // Para SaaS Multi-tenant
+    allowNull: true,
+    type: DataTypes.INTEGER,
+    field: 'company_id',
+    references: {
+      model: 'companies',
+      key: 'id'
+    },
+    onUpdate: 'CASCADE',
+    onDelete: 'CASCADE'
   },
   createdAt: {
-    allowNull: true,
+    allowNull: false,
     type: DataTypes.DATE,
     field: 'created_at',
     defaultValue: DataTypes.NOW,
   },
   updatedAt: {
-    allowNull: true,
+    allowNull: false,
     type: DataTypes.DATE,
     field: 'updated_at',
     defaultValue: DataTypes.NOW,

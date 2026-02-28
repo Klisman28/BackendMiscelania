@@ -364,6 +364,20 @@ class SaasService {
     }
 
     /**
+     * Actualizar cantidad de cupos (seats) de una empresa
+     */
+    async updateCompanySeats(id, seats) {
+        const company = await models.Company.findByPk(id);
+        if (!company) throw boom.notFound('Empresa no encontrada');
+
+        // Optional validation: check if new seats is < active users
+        // But for Superadmin it's fine to just set it and let them be over limit
+
+        await company.update({ seats });
+        return company;
+    }
+
+    /**
      * Estadísticas globales del SaaS
      */
     async getGlobalStats() {

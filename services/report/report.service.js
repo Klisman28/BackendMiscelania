@@ -2,14 +2,22 @@ const { Op, QueryTypes } = require('sequelize');
 const { models } = require('../../libs/sequelize');
 const { sequelize } = require('../../libs/sequelize');
 
+const formatDateStr = (date) => {
+  if (!date) return null;
+  let str = typeof date === 'string' ? date : date.toISOString();
+  return str.split('T')[0];
+};
+
 class ReportService {
 
   // --- SALES ---
 
   async getSalesSummary(query, companyId) {
     const { startDate, endDate, warehouseId, docType } = query;
-    const replacements = { startDate, endDate, companyId };
-    let whereClause = "WHERE s.date_issue BETWEEN :startDate AND :endDate AND s.status = 1 AND s.company_id = :companyId";
+    const parsedStart = formatDateStr(startDate);
+    const parsedEnd = formatDateStr(endDate) + ' 23:59:59';
+    const replacements = { startDate: parsedStart, endDate: parsedEnd, companyId };
+    let whereClause = "WHERE s.date_issue BETWEEN :startDate AND :endDate AND s.status IN (0, 1) AND s.company_id = :companyId";
 
     if (warehouseId) {
       whereClause += " AND s.warehouse_id = :warehouseId";
@@ -36,8 +44,10 @@ class ReportService {
 
   async getSalesByDay(query, companyId) {
     const { startDate, endDate, warehouseId, docType } = query;
-    const replacements = { startDate, endDate, companyId };
-    let whereClause = "WHERE s.date_issue BETWEEN :startDate AND :endDate AND s.status = 1 AND s.company_id = :companyId";
+    const parsedStart = formatDateStr(startDate);
+    const parsedEnd = formatDateStr(endDate) + ' 23:59:59';
+    const replacements = { startDate: parsedStart, endDate: parsedEnd, companyId };
+    let whereClause = "WHERE s.date_issue BETWEEN :startDate AND :endDate AND s.status IN (0, 1) AND s.company_id = :companyId";
 
     if (warehouseId) {
       whereClause += " AND s.warehouse_id = :warehouseId";
@@ -65,9 +75,11 @@ class ReportService {
 
   async getTopProducts(query, companyId) {
     const { startDate, endDate, warehouseId, docType, limit = 10, offset = 0 } = query;
-    const replacements = { startDate, endDate, companyId, limit: parseInt(limit), offset: parseInt(offset) };
+    const parsedStart = formatDateStr(startDate);
+    const parsedEnd = formatDateStr(endDate) + ' 23:59:59';
+    const replacements = { startDate: parsedStart, endDate: parsedEnd, companyId, limit: parseInt(limit), offset: parseInt(offset) };
 
-    let whereClause = "WHERE s.date_issue BETWEEN :startDate AND :endDate AND s.status = 1 AND s.company_id = :companyId";
+    let whereClause = "WHERE s.date_issue BETWEEN :startDate AND :endDate AND s.status IN (0, 1) AND s.company_id = :companyId";
 
     if (warehouseId) {
       whereClause += " AND s.warehouse_id = :warehouseId";
@@ -98,7 +110,9 @@ class ReportService {
 
   async getTopClients(query, companyId) {
     const { startDate, endDate, limit = 10, offset = 0 } = query;
-    const replacements = { startDate, endDate, companyId, limit: parseInt(limit), offset: parseInt(offset) };
+    const parsedStart = formatDateStr(startDate);
+    const parsedEnd = formatDateStr(endDate) + ' 23:59:59';
+    const replacements = { startDate: parsedStart, endDate: parsedEnd, companyId, limit: parseInt(limit), offset: parseInt(offset) };
 
     const sql = `
       SELECT 
@@ -109,7 +123,7 @@ class ReportService {
       JOIN customers c ON s.saleable_id = c.id
       WHERE s.saleable_type = 'customers'
       AND s.date_issue BETWEEN :startDate AND :endDate
-      AND s.status = 1
+      AND s.status IN (0, 1)
       AND s.company_id = :companyId
       GROUP BY c.id, c.fullname, c.first_name, c.last_name, c.name
       ORDER BY total DESC
@@ -124,7 +138,9 @@ class ReportService {
 
   async getPurchasesSummary(query, companyId) {
     const { startDate, endDate } = query;
-    const replacements = { startDate, endDate, companyId };
+    const parsedStart = formatDateStr(startDate);
+    const parsedEnd = formatDateStr(endDate) + ' 23:59:59';
+    const replacements = { startDate: parsedStart, endDate: parsedEnd, companyId };
 
     const sql = `
       SELECT 
@@ -142,7 +158,9 @@ class ReportService {
 
   async getPurchasesByDay(query, companyId) {
     const { startDate, endDate } = query;
-    const replacements = { startDate, endDate, companyId };
+    const parsedStart = formatDateStr(startDate);
+    const parsedEnd = formatDateStr(endDate) + ' 23:59:59';
+    const replacements = { startDate: parsedStart, endDate: parsedEnd, companyId };
 
     const sql = `
       SELECT 
@@ -162,7 +180,9 @@ class ReportService {
 
   async getTopSuppliers(query, companyId) {
     const { startDate, endDate, limit = 10, offset = 0 } = query;
-    const replacements = { startDate, endDate, companyId, limit: parseInt(limit), offset: parseInt(offset) };
+    const parsedStart = formatDateStr(startDate);
+    const parsedEnd = formatDateStr(endDate) + ' 23:59:59';
+    const replacements = { startDate: parsedStart, endDate: parsedEnd, companyId, limit: parseInt(limit), offset: parseInt(offset) };
 
     const sql = `
       SELECT 

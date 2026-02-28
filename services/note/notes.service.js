@@ -7,7 +7,7 @@ const { models } = require('../../libs/sequelize');
 class NotesService {
   async find(query, companyId) {
     // Extrae los filtros y opciones desde la query
-    const { limit, offset, search, sortColumn, sortDirection } = query;
+    const { limit, offset, search, status, sortColumn, sortDirection } = query;
 
     // Opciones de búsqueda para findAll
     const options = {
@@ -24,20 +24,29 @@ class NotesService {
       options.offset = parseInt(offset);
     }
 
-    // Búsqueda por texto
+    if (status && status !== 'Todos') {
+      options.where.status = status;
+      optionsCount.where.status = status;
+    }
+
+    // Búsqueda por texto (teléfono, nombre del cliente o descripción)
     if (search) {
       options.where = {
         ...options.where,
-        text: {
-          [Op.like]: `%${search}%`
-        }
+        [Op.or]: [
+          { clientName: { [Op.like]: `%${search}%` } },
+          { phone: { [Op.like]: `%${search}%` } },
+          { designDescription: { [Op.like]: `%${search}%` } }
+        ]
       };
 
       optionsCount.where = {
         ...optionsCount.where,
-        text: {
-          [Op.like]: `%${search}%`
-        }
+        [Op.or]: [
+          { clientName: { [Op.like]: `%${search}%` } },
+          { phone: { [Op.like]: `%${search}%` } },
+          { designDescription: { [Op.like]: `%${search}%` } }
+        ]
       };
     }
 

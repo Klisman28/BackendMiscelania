@@ -247,6 +247,25 @@ router.patch('/companies/:id/status',
     }
 );
 
+/**
+ * PATCH /api/v1/saas/companies/:id/seats
+ * Actualizar asientos permitidos en la empresa.
+ */
+router.patch('/companies/:id/seats',
+    passport.authenticate('jwt', { session: false }),
+    requireSuperAdmin,
+    async (req, res, next) => {
+        try {
+            const { id } = req.params;
+            const { seats } = req.body;
+            const updated = await service.updateCompanySeats(id, seats);
+            success(res, updated, 'Cantidad de asientos de empresa actualizados');
+        } catch (error) {
+            next(error);
+        }
+    }
+);
+
 const { queryUserSchema } = require('../../schemas/saas/user.schema');
 
 /**
