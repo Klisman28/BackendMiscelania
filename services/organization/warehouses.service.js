@@ -16,8 +16,30 @@ class WarehouseService {
             where.active = query.active === 'true' || query.active === true;
         }
 
-        const warehouses = await models.Warehouse.findAll({ where });
-        return warehouses;
+        const limit = parseInt(query.pageSize, 10) || parseInt(query.limit, 10) || 10;
+        let pageIndex = parseInt(query.pageIndex, 10);
+        if (isNaN(pageIndex)) {
+            pageIndex = parseInt(query.page, 10) || 1;
+        } else if (pageIndex === 0) { // Si viene 0 (ej. React Table 0-based p1), lo tratamos como pag 1
+            pageIndex = 1;
+        }
+
+        const offset = Math.max(0, (pageIndex - 1) * limit);
+
+        const { count, rows } = await models.Warehouse.findAndCountAll({
+            where,
+            limit,
+            offset
+        });
+
+        return {
+            data: rows,
+            total: count,
+            meta: {
+                pageIndex,
+                pageSize: limit
+            }
+        };
     }
 
     async findOne(id, companyId) {

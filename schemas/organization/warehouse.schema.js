@@ -30,6 +30,10 @@ const getWarehouseSchema = Joi.object({
 const queryWarehouseSchema = Joi.object({
     type: type.optional(),
     active: active.optional(),
+    pageIndex: Joi.number().integer().min(0).optional(),
+    pageSize: Joi.number().integer().min(1).optional(),
+    page: Joi.number().integer().min(1).optional(),
+    limit: Joi.number().integer().min(1).optional(),
 });
 
 module.exports = { createWarehouseSchema, updateWarehouseSchema, getWarehouseSchema, queryWarehouseSchema };
