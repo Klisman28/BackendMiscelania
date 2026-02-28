@@ -15,6 +15,8 @@ const sortDirection = Joi.string();
 
 const createPurchasSchema = Joi.object({
     supplierId: supplierId.required(),
+    warehouseId: Joi.alternatives().try(Joi.number().integer(), Joi.string()).optional(), // Se valida/transforma en el router
+    warehouse_id: Joi.alternatives().try(Joi.number().integer(), Joi.string()).optional(),
     igv: igv,
     total: total.required(),
     dateIssue: dateIssue.required(),

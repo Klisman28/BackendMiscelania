@@ -40,9 +40,17 @@ router.post('/',
     async (req, res, next) => {
         try {
             const { sub } = req.user
-            const body = req.body;
+            let body = { ...req.body };
+
+            // Map warehouse_id to warehouseId and ensure it's a valid integer
+            const wId = body.warehouseId || body.warehouse_id;
+            if (!wId || isNaN(wId)) {
+                return res.status(400).json({ type: 'error', message: 'warehouseId es requerido (numérico)' });
+            }
+            body.warehouseId = parseInt(wId, 10);
+
             const purchas = await service.create(body, sub, req.companyId);
-            success(res, purchas, 'Compra registrada con éxito');
+            res.status(201).json({ type: "success", message: 'Compra registrada con éxito', data: purchas });
         } catch (error) {
             next(error);
         }
