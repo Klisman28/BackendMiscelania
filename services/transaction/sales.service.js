@@ -201,16 +201,25 @@ class SalesService {
         data.number = String(config.ticketNum).padStart(digitCount, '0');
       }
 
-      // Validar Warehouse
+      // Validar Warehouse: debe existir, estar activa, pertenecer a la empresa, Y ser tipo "tienda"
       if (!data.warehouseId) {
-        // Fallback or Error? 
-        // For now, let's enforce warehouseId. If legacy clients exist, we might need a default.
-        // Assuming user will send it.
         throw boom.badRequest('warehouseId es requerido');
       }
-      const warehouse = await models.Warehouse.findByPk(data.warehouseId, { transaction: t });
-      if (!warehouse || !warehouse.active) {
-        throw boom.badRequest('Bodega inválida o inactiva');
+      const warehouse = await models.Warehouse.findOne({
+        where: { id: data.warehouseId, companyId },
+        transaction: t
+      });
+      if (!warehouse) {
+        throw boom.badRequest('Ubicación no encontrada o no pertenece a esta empresa');
+      }
+      if (!warehouse.active) {
+        throw boom.badRequest('Ubicación inactiva');
+      }
+      if (warehouse.type !== 'tienda') {
+        throw boom.badRequest(
+          `Solo se pueden registrar ventas desde ubicaciones tipo "tienda". ` +
+          `"${warehouse.name}" es de tipo "${warehouse.type}".`
+        );
       }
 
       // 3. Crear la venta
@@ -225,12 +234,21 @@ class SalesService {
           }
 
           // Leer y bloquear la fila del producto para evitar condiciones de carrera
-          const product = await models.Product.findByPk(item.productId, {
+          const product = await models.Product.scope('withArchived').findByPk(item.productId, {
             transaction: t,
             lock: t.LOCK.UPDATE,
           });
           if (!product) {
             throw boom.badRequest(`Producto ${item.productId} no existe`);
+          }
+
+          // ── Validar que el producto esté ACTIVE para poder venderlo ──
+          if (product.status !== 'ACTIVE') {
+            const statusLabel = product.status === 'INACTIVE' ? 'descontinuado' : 'archivado';
+            throw boom.badRequest(
+              `No se puede vender el producto "${product.name}" (ID: ${product.id}) porque está ${statusLabel}. ` +
+              `Solo se pueden vender productos con status ACTIVE.`
+            );
           }
 
           // Validar stock suficiente en BODEGA
@@ -260,6 +278,9 @@ class SalesService {
 
           // **Restar** stock de la bodega
           await balance.decrement('quantity', { by: item.quantity, transaction: t });
+
+          // **Restar** stock global del producto
+          await product.decrement('stock', { by: item.quantity, transaction: t });
 
           // Registrar Movimiento SALE
           await models.InventoryMovement.create({
@@ -421,6 +442,10 @@ class SalesService {
       console.log(`Productos asociados a la venta con ID ${id}: ${sale.products.length} productos.`);
     }
 
+    if (sale.status === 3) {
+      throw boom.conflict('La venta ya se encuentra anulada');
+    }
+
     // Creamos la transacción
     const t = await sequelize.transaction();
     console.log(`Transacción creada: ${t}.`);
@@ -452,6 +477,9 @@ class SalesService {
             }, { transaction: t });
           }
 
+          // Restaurar stock global del producto
+          await product.increment('stock', { by: quantity, transaction: t });
+
           // Registrar Movimiento
           await models.InventoryMovement.create({
             productId: product.id,
@@ -459,7 +487,7 @@ class SalesService {
             type: 'ADJUSTMENT_IN', // Or SALE_CANCEL
             quantity: quantity,
             referenceId: sale.id.toString(),
-            description: `Eliminación Venta ${sale.id}`,
+            description: `Anulación Venta ${sale.id}`,
             userId: null,
             createdAt: new Date(),
             companyId
@@ -467,9 +495,9 @@ class SalesService {
         }
       }
 
-      // Luego destruimos la venta dentro de la misma transacción
-      await sale.destroy({ transaction: t });
-      console.log(`Venta con ID ${id} eliminada.`);
+      // En lugar de destruir, actualizamos el estado a 3 (ANULADA)
+      await sale.update({ status: 3 }, { transaction: t });
+      console.log(`Venta con ID ${id} anulada.`);
 
       // Hacemos commit de todos los cambios
       await t.commit();
@@ -527,6 +555,9 @@ class SalesService {
               companyId
             }, { transaction: t });
           }
+
+          // Restaurar stock global del producto
+          await product.increment('stock', { by: quantity, transaction: t });
 
           // Registrar Movimiento
           await models.InventoryMovement.create({

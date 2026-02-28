@@ -6,6 +6,12 @@ const { UNIT_TABLE } = require('./unit.model');
 
 const PRODUCT_TABLE = 'products';
 
+const PRODUCT_STATUS = {
+    ACTIVE: 'ACTIVE',
+    INACTIVE: 'INACTIVE',
+    ARCHIVED: 'ARCHIVED'
+};
+
 const ProductSchema = {
     id: {
         allowNull: true,
@@ -72,6 +78,34 @@ const ProductSchema = {
         type: DataTypes.TEXT,
         allowNull: true,
     },
+    // ── Lifecycle status ──
+    status: {
+        type: DataTypes.ENUM('ACTIVE', 'INACTIVE', 'ARCHIVED'),
+        allowNull: false,
+        defaultValue: 'ACTIVE'
+    },
+    inactivatedAt: {
+        field: 'inactivated_at',
+        type: DataTypes.DATE,
+        allowNull: true,
+    },
+    archivedAt: {
+        field: 'archived_at',
+        type: DataTypes.DATE,
+        allowNull: true,
+    },
+    inactiveReason: {
+        field: 'inactive_reason',
+        type: DataTypes.STRING(500),
+        allowNull: true,
+    },
+    // deletedAt se maneja automáticamente por paranoid
+    deletedAt: {
+        field: 'deleted_at',
+        type: DataTypes.DATE,
+        allowNull: true,
+    },
+    // ── FK ──
     brandId: {
         field: 'brand_id',
         allowNull: false,
@@ -105,27 +139,14 @@ const ProductSchema = {
         onUpdate: 'CASCADE',
         onDelete: 'CASCADE'
     },
-
-    //descomentar despues de correr las migraciones
-    // status: {
-    //     type: DataTypes.VIRTUAL,
-    //     get() {
-    //         const stock = this.stock;
-    //         const stockMin = this.stockMin;
-    //         let status = 0;
-
-    //         if(stock == 0){
-    //             status = 2;
-    //         } else if (stock <= stockMin) {
-    //             status = 1;
-    //         }
-
-    //         return status;
-    //       },
-    // }
 }
 
 class Product extends Model {
+    // ── Helper: ¿está activo para operaciones? ──
+    isActive() {
+        return this.status === PRODUCT_STATUS.ACTIVE;
+    }
+
     static associate(models) {
         this.belongsTo(models.Company, { as: 'company', foreignKey: 'companyId' });
         this.belongsTo(models.Brand, {
@@ -137,10 +158,6 @@ class Product extends Model {
         this.belongsTo(models.Unit, {
             as: 'unit'
         });
-        // this.hasMany(models.Feature, {
-        //     as: 'features',
-        //     foreignKey: 'productId'
-        // });
     }
 
     static config(sequelize) {
@@ -148,7 +165,29 @@ class Product extends Model {
             sequelize,
             tableName: PRODUCT_TABLE,
             modelName: 'Product',
-            timestamps: false
+            timestamps: false,
+            paranoid: true,           // Habilita soft delete con deletedAt
+            deletedAt: 'deleted_at',  // Nombre de columna en DB
+            // Scopes para filtrar por status
+            defaultScope: {
+                where: {
+                    status: ['ACTIVE', 'INACTIVE'] // Por defecto excluye ARCHIVED
+                }
+            },
+            scopes: {
+                // Solo activos (para listados de venta, dropdowns, etc.)
+                active: {
+                    where: { status: 'ACTIVE' }
+                },
+                // Todos incluidos ARCHIVED (para reportes, admin)
+                withArchived: {
+                    where: {}
+                },
+                // Solo archivados
+                archived: {
+                    where: { status: 'ARCHIVED' }
+                }
+            }
         }
     }
 
@@ -159,4 +198,4 @@ class Product extends Model {
     }
 }
 
-module.exports = { PRODUCT_TABLE, ProductSchema, Product }
+module.exports = { PRODUCT_TABLE, ProductSchema, Product, PRODUCT_STATUS }

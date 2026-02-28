@@ -15,7 +15,7 @@ router.get('/',
     validatorHandler(queryEnterpriseSchema, 'query'),
     async (req, res, next) => {
         try {
-            const enterprises = await service.find(req.query);
+            const enterprises = await service.find(req.query, req.companyId);
             success(res, enterprises);
         } catch (error) {
             next(error);
@@ -28,7 +28,7 @@ router.get('/:id',
     async (req, res, next) => {
         try {
             const { id } = req.params;
-            const enterprise = await service.findOne(id);
+            const enterprise = await service.findOne(id, req.companyId);
             success(res, enterprise, 'Empresa encontrada con éxito');
         } catch (error) {
             next(error);
@@ -41,7 +41,7 @@ router.post('/',
     async (req, res, next) => {
         try {
             const body = req.body;
-            const enterprise = await service.create(body);
+            const enterprise = await service.create(body, req.companyId);
             success(res, enterprise, 'Empresa registrada con éxito', 201);
         } catch (error) {
             next(error);
@@ -56,7 +56,7 @@ router.put('/:id',
         try {
             const { id } = req.params;
             const body = req.body;
-            const enterprise = await service.update(id, body);
+            const enterprise = await service.update(id, body, req.companyId);
             success(res, enterprise, 'Empresa actualizada con éxito', 201);
         } catch (error) {
             next(error);
@@ -69,7 +69,7 @@ router.delete('/:id',
     async (req, res, next) => {
         try {
             const { id } = req.params;
-            await service.delete(id);
+            await service.delete(id, req.companyId);
             success(res, id, 'Empresa eliminada con éxito', 201);
         } catch (error) {
             next(error);

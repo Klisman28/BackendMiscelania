@@ -10,7 +10,8 @@ const {
     getProductSchema,
     queryProductSchema,
     updateProductSchema,
-    searchProductSchema
+    searchProductSchema,
+    updateProductStatusSchema
 } = require('../../schemas/catalogue/products.schema');
 const { success } = require('../response');
 
@@ -72,11 +73,6 @@ router.post('/',
             const body = req.body;
             const file = req.file;
 
-            // Estrategia de validación:
-            // 1. Intentar con quick schema (solo requiere: name, sku, cost, price, subcategoryId, unitId)
-            // 2. Si falla, intentar con schema completo
-            // 3. Si ambos fallan, retornar error del schema completo
-
             let validationError = null;
             let validatedBody = null;
             let isQuickMode = false;
@@ -97,15 +93,29 @@ router.post('/',
             }
 
             if (validationError) {
-                // Si hay error de validación, eliminar el archivo subido si existe (aunque estemos en memoria aquí, para consistencia o si cambiamos a disco)
-                // Con memoryStorage no hace falta borrar nada del disco
                 return next(boom.badRequest(validationError.message));
             }
 
-            // Pasar el modo al service para que aplique defaults apropiados
-            // Pasar también el archivo
             const product = await service.create(validatedBody, isQuickMode, file, req.companyId);
             success(res, product, 'Producto registrado con éxito', 201);
+        } catch (error) {
+            next(error);
+        }
+    }
+);
+
+// ══════════════════════════════════════════════════════════════
+// ☞ PATCH /api/products/:id/status — Cambiar lifecycle status
+// ══════════════════════════════════════════════════════════════
+router.patch('/:id/status',
+    validatorHandler(getProductSchema, 'params'),
+    validatorHandler(updateProductStatusSchema, 'body'),
+    async (req, res, next) => {
+        try {
+            const { id } = req.params;
+            const { status, reason } = req.body;
+            const product = await service.updateStatus(id, { status, reason }, req.companyId);
+            success(res, product, `Producto actualizado a status: ${status}`);
         } catch (error) {
             next(error);
         }

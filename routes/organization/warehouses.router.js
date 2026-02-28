@@ -2,8 +2,8 @@ const express = require('express');
 
 const WarehouseService = require('../../services/organization/warehouses.service');
 const validatorHandler = require('../../middlewares/validator.handler');
-const { createWarehouseSchema, updateWarehouseSchema, getWarehouseSchema } = require('../../schemas/organization/warehouse.schema');
-const { addStockSchema, queryStockSchema } = require('../../schemas/transaction/inventory.schema'); // Reuse if needed or separate
+const { createWarehouseSchema, updateWarehouseSchema, getWarehouseSchema, queryWarehouseSchema } = require('../../schemas/organization/warehouse.schema');
+const { addStockSchema, queryStockSchema } = require('../../schemas/transaction/inventory.schema');
 
 const router = express.Router();
 const service = new WarehouseService();
@@ -11,14 +11,43 @@ const InventoryService = require('../../services/transaction/inventory.service')
 const inventoryService = new InventoryService();
 
 
-router.get('/', async (req, res, next) => {
-    try {
-        const warehouses = await service.find(req.companyId);
-        res.json(warehouses);
-    } catch (error) {
-        next(error);
+// ─── List all warehouses (filterable by ?type=tienda|bodega) ───
+router.get('/',
+    validatorHandler(queryWarehouseSchema, 'query'),
+    async (req, res, next) => {
+        try {
+            const warehouses = await service.find(req.companyId, req.query);
+            res.json(warehouses);
+        } catch (error) {
+            next(error);
+        }
     }
-});
+);
+
+// ─── Get active stores only (tiendas) ───
+router.get('/stores',
+    async (req, res, next) => {
+        try {
+            const stores = await service.findStores(req.companyId);
+            res.json(stores);
+        } catch (error) {
+            next(error);
+        }
+    }
+);
+
+// ─── Products available for sale (stock > 0 in stores / tiendas) ───
+// Used by "Nueva Venta" screen
+router.get('/stores/products',
+    async (req, res, next) => {
+        try {
+            const result = await service.getStoreProducts(req.companyId, req.query);
+            res.json(result);
+        } catch (error) {
+            next(error);
+        }
+    }
+);
 
 router.get('/:id',
     validatorHandler(getWarehouseSchema, 'params'),

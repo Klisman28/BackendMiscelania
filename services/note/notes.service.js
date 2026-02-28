@@ -5,17 +5,18 @@ const { Op } = require('sequelize');
 const { models } = require('../../libs/sequelize');
 
 class NotesService {
-  async find(query) {
+  async find(query, companyId) {
     // Extrae los filtros y opciones desde la query
     const { limit, offset, search, sortColumn, sortDirection } = query;
 
     // Opciones de búsqueda para findAll
     const options = {
+      where: { companyId },
       order: [(sortColumn) ? [sortColumn, sortDirection] : ['id', 'DESC']]
     };
 
     // Opciones de búsqueda para count (solo queremos contar cuántos hay)
-    const optionsCount = {};
+    const optionsCount = { where: { companyId } };
 
     // Paginación
     if (limit && offset) {
@@ -26,12 +27,14 @@ class NotesService {
     // Búsqueda por texto
     if (search) {
       options.where = {
+        ...options.where,
         text: {
           [Op.like]: `%${search}%`
         }
       };
 
       optionsCount.where = {
+        ...optionsCount.where,
         text: {
           [Op.like]: `%${search}%`
         }
@@ -46,32 +49,33 @@ class NotesService {
     return { notes, total };
   }
 
-  async create(data) {
+  async create(data, companyId) {
+    const { companyId: _c, company_id: _ci, ...safe } = data;
     // Creamos una nueva nota
-    const note = await models.Note.create(data);
+    const note = await models.Note.create({ ...safe, companyId });
     return note;
   }
 
-  async findOne(id) {
+  async findOne(id, companyId) {
     // Buscamos la nota por su ID
-    const note = await models.Note.findByPk(id);
+    const note = await models.Note.findOne({ where: { id, companyId } });
     if (!note) {
       throw boom.notFound('No se encontró ninguna nota con ese ID');
     }
     return note;
   }
 
-  async update(id, changes) {
+  async update(id, changes, companyId) {
     // Primero verificamos si existe
-    let note = await this.findOne(id);
+    let note = await this.findOne(id, companyId);
     // Actualizamos la nota con los cambios
     note = await note.update(changes);
     return note;
   }
 
-  async delete(id) {
+  async delete(id, companyId) {
     // Primero verificamos si existe
-    const note = await this.findOne(id);
+    const note = await this.findOne(id, companyId);
     // La eliminamos de la BD
     await note.destroy();
     return { id };

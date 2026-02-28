@@ -15,14 +15,24 @@ class InventoryService {
             if (!warehouse) throw boom.notFound('Bodega no encontrada');
             if (!warehouse.active) throw boom.badRequest('Bodega inactiva');
 
-            const product = await models.Product.findByPk(productId, { transaction: t });
+            // Lock product row to prevent race conditions
+            const product = await models.Product.scope('withArchived').findByPk(productId, { transaction: t, lock: t.LOCK.UPDATE });
             if (!product) throw boom.notFound('Producto no encontrado');
+
+            // ── Validar que el producto esté ACTIVE para poder reabastecer ──
+            if (product.status !== 'ACTIVE') {
+                const statusLabel = product.status === 'INACTIVE' ? 'descontinuado' : 'archivado';
+                throw boom.badRequest(
+                    `No se puede reabastecer el producto "${product.name}" (ID: ${product.id}) porque está ${statusLabel}. ` +
+                    `Solo se puede agregar stock a productos con status ACTIVE.`
+                );
+            }
 
             // 2. Register Movement
             await models.InventoryMovement.create({
                 productId,
                 warehouseId,
-                type: 'IN', // Or ADJUSTMENT_IN
+                type: 'IN',
                 quantity,
                 description: description || 'Ingreso manual',
                 userId,
@@ -30,10 +40,11 @@ class InventoryService {
                 companyId
             }, { transaction: t });
 
-            // 3. Update Balance
+            // 3. Update Balance (with lock)
             const balance = await models.InventoryBalance.findOne({
                 where: { warehouseId, productId, companyId },
-                transaction: t
+                transaction: t,
+                lock: t.LOCK.UPDATE
             });
 
             if (balance) {
@@ -46,6 +57,9 @@ class InventoryService {
                     companyId
                 }, { transaction: t });
             }
+
+            // 4. Update global product stock
+            await product.increment('stock', { by: quantity, transaction: t });
 
             await t.commit();
             return { message: 'Stock agregado correctamente' };
@@ -87,6 +101,14 @@ class InventoryService {
             // 3. Update Balance
             await balance.decrement('quantity', { by: quantity, transaction: t });
 
+            // 4. Update global product stock (with lock)
+            // NOTE: removeStock se permite incluso para productos INACTIVE/ARCHIVED
+            // para poder dejar el stock en 0 (ej: ajustes, salidas de mercadería)
+            const product = await models.Product.scope('withArchived').findByPk(productId, { transaction: t, lock: t.LOCK.UPDATE });
+            if (product) {
+                await product.decrement('stock', { by: quantity, transaction: t });
+            }
+
             await t.commit();
             return { message: 'Stock retirado correctamente' };
 
@@ -124,7 +146,8 @@ class InventoryService {
                 userId,
                 status: 'COMPLETED',
                 observation,
-                date: new Date()
+                date: new Date(),
+                companyId
             }, { transaction: t });
 
             // 3. Process Items
@@ -214,6 +237,7 @@ class InventoryService {
         const options = {
             limit,
             offset,
+            where: { companyId },
             include: [
                 { model: models.Warehouse, as: 'fromWarehouse', where: { companyId } },
                 { model: models.Warehouse, as: 'toWarehouse' }
@@ -234,6 +258,7 @@ class InventoryService {
 
         if (search) {
             options.where = {
+                ...options.where,
                 [Op.or]: [
                     { observation: { [Op.like]: `%${search}%` } },
                     { status: { [Op.like]: `%${search}%` } },
@@ -291,7 +316,7 @@ class InventoryService {
 
     async getTransferById(id, companyId) {
         const transfer = await models.Transfer.findOne({
-            where: { id },
+            where: { id, companyId },
             include: [
                 { model: models.Warehouse, as: 'fromWarehouse', where: { companyId } },
                 { model: models.Warehouse, as: 'toWarehouse' },
@@ -335,7 +360,12 @@ class InventoryService {
                 {
                     model: models.Product,
                     as: 'product',
-                    attributes: ['id', 'name', 'sku', 'price']
+                    attributes: ['id', 'name', 'sku', 'price', 'imageUrl', 'description', 'stock', 'stockMin'],
+                    include: [
+                        { model: models.Brand, as: 'brand', attributes: ['id', 'name'] },
+                        { model: models.Unit, as: 'unit', attributes: ['id', 'symbol'] },
+                        { model: models.Subcategory, as: 'subcategory', attributes: ['id', 'name'] }
+                    ]
                 }
             ]
         };

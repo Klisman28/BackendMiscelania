@@ -1,0 +1,14 @@
+OPTIONS status: 204
+access-control-allow-credentials: true
+access-control-allow-headers: Content-Type,Authorization
+access-control-allow-methods: GET,POST,PUT,PATCH,DELETE,OPTIONS
+access-control-allow-origin: http://localhost:3005
+connection: keep-alive
+content-length: 0
+date: Mon, 23 Feb 2026 21:21:11 GMT
+keep-alive: timeout=5
+vary: Origin
+x-powered-by: Express
+TypeError: Cannot read properties of undefined (reading 'token')
+    at C:\Users\kagui\Documents\Github\BackendMiscelania\test_cors.js:21:38
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)

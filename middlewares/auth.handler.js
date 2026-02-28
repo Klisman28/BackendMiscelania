@@ -8,6 +8,7 @@ const auth = require('../config/auth.config');
  * @param {function} next - Express next function
  */
 function checkApiKey(req, res, next) {
+    if (req.method === 'OPTIONS') return next();
     const apiKey = req.headers['api'];
     if (apiKey === auth.apiKey) {
         next();
@@ -41,6 +42,7 @@ function checkApiKey(req, res, next) {
  */
 function checkRoles(...roles) {
     return (req, res, next) => {
+        if (req.method === 'OPTIONS') return next();
         const user = req.user;
 
         // Verificar que el usuario tenga roles
@@ -65,4 +67,24 @@ function checkRoles(...roles) {
 // Alias para mayor claridad semántica
 const authorizeRoles = checkRoles;
 
-module.exports = { checkApiKey, checkRoles, authorizeRoles };
+/**
+ * Middleware para validar superadmin
+ */
+function requireSuperAdmin(req, res, next) {
+    if (req.method === 'OPTIONS') return next();
+    const user = req.user;
+    if (!user) {
+        return next(boom.unauthorized('No autenticado'));
+    }
+
+    // Verificar si isSuperAdmin viene en el token o está en el array de roles
+    const isSuper = user.isSuperAdmin || (user.roles && user.roles.map(r => r.toUpperCase()).includes('SUPERADMIN'));
+
+    if (isSuper) {
+        next();
+    } else {
+        next(boom.forbidden('Acceso denegado. Se requiere privilegios de SuperAdmin.'));
+    }
+}
+
+module.exports = { checkApiKey, checkRoles, authorizeRoles, requireSuperAdmin };

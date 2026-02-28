@@ -27,6 +27,15 @@ const WarehouseSchema = {
         type: DataTypes.BOOLEAN,
         defaultValue: true
     },
+    type: {
+        allowNull: false,
+        type: DataTypes.STRING(20),
+        defaultValue: 'bodega',
+        validate: {
+            isIn: [['tienda', 'bodega']]
+        },
+        comment: 'tienda = punto de venta (POS), bodega = almacén'
+    },
     companyId: {
         field: 'company_id',
         allowNull: true,

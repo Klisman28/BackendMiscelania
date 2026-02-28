@@ -11,40 +11,45 @@ const { models } = require('../libs/sequelize');
  */
 async function tenantGuard(req, res, next) {
     try {
+        if (req.method === 'OPTIONS') return next();
         const user = req.user;
 
-        if (!user || !user.companyId) {
-            return next(boom.badRequest('No activeCompanyId in token'));
+        if (!user || user.activeCompanyId === undefined || user.activeCompanyId === null) {
+            return next(boom.badRequest('No activeCompanyId in token (requerido para esta ruta tenant)'));
         }
 
-        // Superadmin puede actuar sobre cualquier company
-        const isSuperadmin = user.roles &&
-            user.roles.map(r => r.toUpperCase()).includes('SUPERADMIN');
+        const companyId = parseInt(user.activeCompanyId, 10);
+        const isSuperAdmin = user.isSuperAdmin || (user.roles && user.roles.map(r => r.toUpperCase()).includes('SUPERADMIN'));
 
-        if (isSuperadmin) {
-            req.companyId = user.companyId;
+        if (isSuperAdmin) {
+            // Es superadmin: validar que exista la empresa
+            const companyExists = await models.Company.findByPk(companyId);
+            if (!companyExists) {
+                return next(boom.notFound('La empresa solicitada no existe'));
+            }
+            req.companyId = companyId;
             req.tenantRole = 'superadmin';
             return next();
         }
 
-        // Verificar membresía activa
+        // --- Lógica normal: Verificar membresía activa ---
         const membership = await models.CompanyUser.findOne({
             where: {
                 userId: user.sub,
-                companyId: user.companyId,
+                companyId: companyId,
                 status: 'active'
             }
         });
 
         if (!membership) {
             console.warn(
-                `[SECURITY] User ${user.sub} attempted to access company ${user.companyId} without active membership`
+                `[SECURITY] User ${user.sub} attempted to access company ${companyId} without active membership`
             );
-            return next(boom.forbidden('No tienes acceso a esta empresa'));
+            return next(boom.forbidden('Forbidden: not a member of this company'));
         }
 
         // Establecer contexto de tenant
-        req.companyId = user.companyId;
+        req.companyId = companyId;
         req.tenantRole = membership.role;
 
         next();

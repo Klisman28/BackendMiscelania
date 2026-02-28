@@ -36,5 +36,13 @@ function sanitizeBody(body, companyId) {
 
     return { ...safe, companyId };
 }
+function buildPagination({ limit, offset, page }) {
+    const defaultLimit = 10;
+    const defaultOffset = 0;
+    const l = Math.max(1, parseInt(limit, 10) || defaultLimit);
+    const p = Math.max(1, parseInt(page, 10) || 1);
+    const o = parseInt(offset, 10) >= 0 ? parseInt(offset, 10) : (p - 1) * l;
+    return { limit: l, offset: o };
+}
 
-module.exports = { withTenant, sanitizeBody };
+module.exports = { withTenant, sanitizeBody, buildPagination };

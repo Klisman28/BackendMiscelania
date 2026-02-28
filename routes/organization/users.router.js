@@ -10,14 +10,21 @@ const {
     updatePasswordSchema
 } = require('../../schemas/organization/users.schema');
 
+const { tenantResolver } = require('../../middlewares/tenant');
+const passport = require('passport');
+
 const router = express.Router();
 const service = new UsersService();
+
+// Aplicar middlewares de auth y tenant a todas las rutas de este router
+router.use(passport.authenticate('jwt', { session: false }));
+router.use(tenantResolver);
 
 router.get('/',
     validatorHandler(queryUserSchema, 'query'),
     async (req, res, next) => {
         try {
-            const users = await service.find(req.query);
+            const users = await service.find(req.query, req.companyId);
             success(res, users);
         } catch (error) {
             next(error);
@@ -41,7 +48,7 @@ router.get('/:id',
     async (req, res, next) => {
         try {
             const { id } = req.params;
-            const user = await service.findOne(id);
+            const user = await service.findOne(id, req.companyId);
             success(res, user, 'Usuario encontrado con éxito');
         } catch (error) {
             next(error);
@@ -54,7 +61,7 @@ router.post('/',
     async (req, res, next) => {
         try {
             const body = req.body;
-            const user = await service.create(body);
+            const user = await service.create(body, req.companyId);
             success(res, user, 'Usuario creado con éxito', 201);
         } catch (error) {
             next(error);
@@ -69,7 +76,7 @@ router.put('/:id',
         try {
             const { id } = req.params;
             const body = req.body;
-            const user = await service.update(id, body);
+            const user = await service.update(id, body, req.companyId);
             success(res, user, 'Usuario actualizado con éxito', 201);
         } catch (error) {
             next(error);
@@ -84,7 +91,7 @@ router.put('/:id/change-password',
         try {
             const { id } = req.params;
             const body = req.body;
-            const user = await service.updatePassword(id, body);
+            const user = await service.updatePassword(id, body, req.companyId);
             success(res, user, 'Contraseña cambiada con éxito', 201);
         } catch (error) {
             next(error);
@@ -97,7 +104,7 @@ router.delete('/:id',
     async (req, res, next) => {
         try {
             const { id } = req.params;
-            await service.delete(id);
+            await service.delete(id, req.companyId);
             success(res, id, 'Usuario eliminado con éxito');
         } catch (error) {
             next(error);

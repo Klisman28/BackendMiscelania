@@ -74,7 +74,7 @@ const isSuperAdmin = (req, res, next) => {
 
 // middlewares para rutas protegidas
 const passport = require('passport');
-const { checkRoles } = require('../../middlewares/auth.handler');
+const { checkRoles, requireSuperAdmin } = require('../../middlewares/auth.handler');
 const { tenantGuard } = require('../../middlewares/tenant.handler');
 
 /**
@@ -178,9 +178,7 @@ router.post('/create-portal-session',
  */
 router.get('/stats',
     passport.authenticate('jwt', { session: false }),
-    tenantGuard, // Carga req.companyId
-    checkRoles('admin', 'superadmin'),
-    isSuperAdmin,
+    requireSuperAdmin,
     async (req, res, next) => {
         try {
             const stats = await service.getGlobalStats();
@@ -199,9 +197,7 @@ const { createCompanySchema, updateCompanyStatusSchema, queryCompanySchema } = r
  */
 router.get('/companies',
     passport.authenticate('jwt', { session: false }),
-    tenantGuard,
-    checkRoles('admin', 'superadmin'),
-    isSuperAdmin,
+    requireSuperAdmin,
     validatorHandler(queryCompanySchema, 'query'),
     async (req, res, next) => {
         try {
@@ -219,9 +215,7 @@ router.get('/companies',
  */
 router.post('/companies',
     passport.authenticate('jwt', { session: false }),
-    tenantGuard,
-    checkRoles('admin', 'superadmin'),
-    isSuperAdmin,
+    requireSuperAdmin,
     validatorHandler(createCompanySchema, 'body'),
     async (req, res, next) => {
         try {
@@ -239,9 +233,7 @@ router.post('/companies',
  */
 router.patch('/companies/:id/status',
     passport.authenticate('jwt', { session: false }),
-    tenantGuard,
-    checkRoles('admin', 'superadmin'),
-    isSuperAdmin,
+    requireSuperAdmin,
     validatorHandler(updateCompanyStatusSchema, 'body'),
     async (req, res, next) => {
         try {
@@ -263,14 +255,69 @@ const { queryUserSchema } = require('../../schemas/saas/user.schema');
  */
 router.get('/users',
     passport.authenticate('jwt', { session: false }),
-    tenantGuard,
-    checkRoles('admin', 'superadmin'),
-    isSuperAdmin,
+    requireSuperAdmin,
     validatorHandler(queryUserSchema, 'query'),
     async (req, res, next) => {
         try {
             const data = await service.getUsers(req.query);
             success(res, data, 'Listado de usuarios');
+        } catch (error) {
+            next(error);
+        }
+    }
+);
+
+/**
+ * Miembros de una empresa (company_users)
+ */
+router.get('/companies/:id/members',
+    passport.authenticate('jwt', { session: false }),
+    requireSuperAdmin,
+    async (req, res, next) => {
+        try {
+            const data = await service.getCompanyMembers(req.params.id);
+            success(res, data, 'Listado de miembros de la empresa');
+        } catch (error) {
+            next(error);
+        }
+    }
+);
+
+router.post('/companies/:id/members',
+    passport.authenticate('jwt', { session: false }),
+    requireSuperAdmin,
+    async (req, res, next) => {
+        try {
+            const { userId, role } = req.body;
+            const data = await service.addCompanyMember({ companyId: req.params.id, userId, role });
+            success(res, data, 'Miembro agregado exitosamente', 201);
+        } catch (error) {
+            next(error);
+        }
+    }
+);
+
+router.patch('/companies/:id/members/:userId',
+    passport.authenticate('jwt', { session: false }),
+    requireSuperAdmin,
+    async (req, res, next) => {
+        try {
+            const data = await service.updateCompanyMember(req.params.id, req.params.userId, req.body);
+            success(res, data, 'Membresía actualizada');
+        } catch (error) {
+            next(error);
+        }
+    }
+);
+
+router.delete('/companies/:id/members/:userId',
+    passport.authenticate('jwt', { session: false }),
+    requireSuperAdmin,
+    async (req, res, next) => {
+        try {
+            const isHardDelete = req.query.hard === 'true';
+            const data = await service.suspendCompanyMember(req.params.id, req.params.userId, isHardDelete);
+            success(res, data, isHardDelete ? 'Membresía eliminada definitivamente' : 'Miembro suspendido/retirado exitosamente');
         } catch (error) {
             next(error);
         }

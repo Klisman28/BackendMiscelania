@@ -397,6 +397,17 @@ class SaasService {
                     as: 'employee',
                     attributes: ['email'],
                     required: false
+                },
+                {
+                    model: models.Role,
+                    as: 'roles',
+                    attributes: ['name'],
+                    through: { attributes: [] }
+                },
+                {
+                    model: models.CompanyUser,
+                    as: 'memberships',
+                    include: [{ model: models.Company, as: 'company', attributes: ['id', 'name', 'slug'] }]
                 }
             ],
             order: [['username', 'ASC']]
@@ -416,15 +427,93 @@ class SaasService {
 
         const users = rows.map(u => {
             const plain = u.get({ plain: true });
+            const roles = plain.roles?.map(r => String(r.name).toUpperCase()) ?? [];
+            const isSuperAdmin = roles.includes('SUPERADMIN') || roles.includes('superadmin'.toUpperCase());
+            const memberships = plain.memberships?.map(m => ({
+                companyId: m.companyId ?? m.company_id,
+                companyName: m.company?.name ?? null,
+                companySlug: m.company?.slug ?? null,
+                role: m.role,
+                status: m.status
+            })) ?? [];
+
             return {
                 id: plain.id,
                 username: plain.username,
                 email: plain.employee ? plain.employee.email : null,
-                createdAt: plain.createdAt
+                status: plain.status,
+                createdAt: plain.createdAt,
+                roles,
+                isSuperAdmin,
+                memberships
             };
         });
 
         return { total: count, users };
+    }
+
+    async getCompanyMembers(companyId) {
+        const members = await models.CompanyUser.findAll({
+            where: { companyId },
+            include: [
+                {
+                    model: models.User,
+                    as: 'user',
+                    attributes: ['id', 'username', 'status', 'createdAt']
+                }
+            ]
+        });
+        return members;
+    }
+
+    async addCompanyMember({ companyId, userId, role }) {
+        const company = await models.Company.findByPk(companyId);
+        if (!company) throw boom.notFound('Empresa no encontrada');
+
+        const user = await models.User.findByPk(userId);
+        if (!user) throw boom.notFound('Usuario no encontrado');
+
+        const activeUsersCount = await models.CompanyUser.count({
+            where: { companyId, status: 'active' }
+        });
+
+        if (activeUsersCount >= company.seats) {
+            throw boom.conflict(`Límite de usuarios alcanzado (${company.seats}). Actualiza el plan del tenant.`);
+        }
+
+        const [membership, created] = await models.CompanyUser.findOrCreate({
+            where: { companyId, userId },
+            defaults: { role: role || 'staff', status: 'active' }
+        });
+
+        if (!created && membership.status !== 'active') {
+            await membership.update({ status: 'active', role: role || membership.role });
+        } else if (!created && role) {
+            await membership.update({ role });
+        }
+
+        return membership;
+    }
+
+    async updateCompanyMember(companyId, userId, changes) {
+        const membership = await models.CompanyUser.findOne({ where: { companyId, userId } });
+        if (!membership) throw boom.notFound('Membresía no encontrada');
+
+        await membership.update(changes);
+        return membership;
+    }
+
+    async suspendCompanyMember(companyId, userId, isHardDelete = false) {
+        const membership = await models.CompanyUser.findOne({ where: { companyId, userId } });
+        if (!membership) throw boom.notFound('Membresía no encontrada');
+
+        if (isHardDelete) {
+            await membership.destroy();
+            return { message: 'Membresía eliminada definitivamente' };
+        } else {
+            await membership.update({ status: 'suspended' });
+            return membership;
+        }
     }
 }
 

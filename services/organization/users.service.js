@@ -4,11 +4,14 @@ const bcrypt = require('bcrypt');
 const { Op } = require('sequelize');
 
 class UsersService {
-    async find(query) {
+    async find(query, companyId) {
         const { limit, offset, search, sortColumn, sortDirection } = query;
+
+        const baseWhere = companyId ? { companyId } : {};
 
         const options = {
             order: [(sortColumn) ? [sortColumn, sortDirection] : ['id', 'DESC']],
+            where: { ...baseWhere },
             attributes: {
                 exclude: ['password', 'createdAt', 'updatedAt']
             },
@@ -24,7 +27,10 @@ class UsersService {
                 'employee'
             ]
         }
-        const optionsCount = {};
+
+        const optionsCount = {
+            where: { ...baseWhere }
+        };
 
         if (limit && offset) {
             options.limit = parseInt(limit);
@@ -32,19 +38,14 @@ class UsersService {
         }
 
         if (search) {
-            options.where = {
+            const searchCondition = {
                 [Op.or]: [
                     { username: { [Op.like]: `%${search}%` } },
                     { email: { [Op.like]: `%${search}%` } }
                 ]
-            }
-
-            optionsCount.where = {
-                [Op.or]: [
-                    { username: { [Op.like]: `%${search}%` } },
-                    { email: { [Op.like]: `%${search}%` } }
-                ]
-            }
+            };
+            options.where = { ...options.where, ...searchCondition };
+            optionsCount.where = { ...optionsCount.where, ...searchCondition };
         }
 
         const users = await models.User.findAll(options);
@@ -58,29 +59,39 @@ class UsersService {
         return roles;
     }
 
-    async create(data) {
-        // Validación de Seats SaaS
-        // Si se crea activo, validar límite
-        const isActive = data.status !== false; // Default true si undefined
-        if (isActive && data.companyId) {
-            await this._checkSeatsLimit(data.companyId);
+    async create(data, companyId) {
+        // Ignorar el companyId si el cliente intenta un spoofing, forzar el del token
+        const safeData = { ...data, companyId };
+        const isActive = safeData.status !== false; // Default true si undefined
+        if (isActive && companyId) {
+            await this._checkSeatsLimit(companyId);
         }
 
-        const hash = await bcrypt.hash(data.password, 10);
+        const hash = await bcrypt.hash(safeData.password, 10);
         const userData = {
-            ...data,
+            ...safeData,
             password: hash,
-            userableId: data.userableId ?? null,
-            userableType: data.userableType ?? null
+            userableId: safeData.userableId ?? null,
+            userableType: safeData.userableType ?? null
         };
 
         const user = await models.User.create(userData);
 
-        if (data.roles && data.roles.length > 0) {
-            for (const id of data.roles) {
+        if (safeData.roles && safeData.roles.length > 0) {
+            for (const id of safeData.roles) {
                 const role = await models.Role.findByPk(id);
-                await user.addRole(role);
+                if (role) await user.addRole(role);
             }
+        }
+
+        // Crear Mebresía
+        if (companyId) {
+            await models.CompanyUser.create({
+                companyId,
+                userId: user.id,
+                role: 'staff', // o el rol que proceda dentro del tenant si se pasara en data
+                status: isActive ? 'active' : 'suspended'
+            });
         }
 
         delete user.dataValues.password;
@@ -93,8 +104,8 @@ class UsersService {
         return res;
     }
 
-    async findOne(id) {
-        const user = await models.User.findByPk(id, {
+    async findOne(id, companyId) {
+        const options = {
             attributes: {
                 exclude: ['password', 'createdAt', 'updatedAt']
             },
@@ -102,9 +113,7 @@ class UsersService {
                 {
                     model: models.Role,
                     as: 'roles',
-                    through: {
-                        attributes: []
-                    }
+                    through: { attributes: [] }
                 },
                 {
                     model: models.Employee,
@@ -112,9 +121,20 @@ class UsersService {
                     attributes: ['fullname', 'dni', 'id']
                 }
             ]
-        });
+        };
+
+        if (companyId) {
+            options.include.push({
+                model: models.CompanyUser,
+                as: 'memberships',
+                where: { companyId },
+                required: true
+            });
+        }
+
+        const user = await models.User.findByPk(id, options);
         if (!user) {
-            throw boom.notFound('No se encontro ningún usuario');
+            throw boom.notFound('No se encontro ningún usuario (o no tienes permiso en este tenant)');
         }
         return user;
     }
@@ -143,8 +163,8 @@ class UsersService {
         return user;
     }
 
-    async update(id, changes) {
-        let user = await this.findOne(id);
+    async update(id, changes, companyId) {
+        let user = await this.findOne(id, companyId);
 
         // Validación de Seats SaaS al activar
         if (changes.status === true && user.status !== true && user.companyId) {
@@ -171,8 +191,8 @@ class UsersService {
         return user;
     }
 
-    async updatePassword(id, changes) {
-        let user = await this.findOne(id);
+    async updatePassword(id, changes, companyId) {
+        let user = await this.findOne(id, companyId);
         const hash = await bcrypt.hash(changes.password, 10);
 
         user = await user.update({
@@ -185,9 +205,16 @@ class UsersService {
         return user;
     }
 
-    async delete(id) {
-        const user = await this.findOne(id);
-        await user.destroy();
+    async delete(id, companyId) {
+        let user = await this.findOne(id, companyId);
+
+        // Soft delete de la membresía en vez de destruir al usuario globalmente
+        if (companyId) {
+            await models.CompanyUser.destroy({ where: { userId: user.id, companyId } });
+        } else {
+            await user.destroy(); // Caso superadmin (companyId null)
+        }
+
         return { id };
     }
     async _checkSeatsLimit(companyId) {

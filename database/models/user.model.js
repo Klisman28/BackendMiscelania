@@ -81,6 +81,11 @@ class User extends Model {
       foreignKey: 'userId'
     });
 
+    this.hasMany(models.CompanyUser, {
+      as: 'memberships',
+      foreignKey: 'userId'
+    });
+
     // Polymorphic association: User -> Employee
     this.belongsTo(models.Employee, {
       as: 'employee',

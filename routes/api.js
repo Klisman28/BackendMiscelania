@@ -24,7 +24,7 @@ const inventoryRouter = require('./transaction/inventory.router');
 const customersRouter = require('./client/customers.router');
 const enterprisesRouter = require('./client/enterprises.router');
 
-const { checkRoles } = require('../middlewares/auth.handler');
+const { checkRoles, requireSuperAdmin } = require('../middlewares/auth.handler');
 const { tenantGuard } = require('../middlewares/tenant.handler');
 const notesRouter = require('./notes/notes.router');
 const reportRouter = require('./report/reports.router');
@@ -183,11 +183,18 @@ function apiRouter(app) {
 
 
 
-    router.use('/users', usersRouter);
+    router.use('/users', passport.authenticate('jwt',
+        { session: false }),
+        requireSuperAdmin,
+        usersRouter
+    );
     router.use('/auth', authRouter);
 
     // ── Rutas públicas SaaS (sin autenticación) ──────────────────────────
     router.use('/saas', require('./saas/webhook.router')); // Webhook raw body
+
+    // ── Rutas protegidas SaaS ───────────────────────────────────────────────
+    router.use('/saas/roles', require('./saas/roles.router'));
     router.use('/saas', saasRouter);
 }
 

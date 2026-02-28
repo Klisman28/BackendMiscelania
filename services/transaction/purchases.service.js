@@ -71,12 +71,21 @@ class PurchasesService {
 
       if (safeData.products && safeData.products.length > 0) {
         for (const item of safeData.products) {
-          const product = await models.Product.findByPk(item.productId, {
+          const product = await models.Product.scope('withArchived').findByPk(item.productId, {
             transaction: t,
             lock: t.LOCK.UPDATE,
           });
 
           if (!product) throw boom.badRequest(`Producto ${item.productId} no existe`);
+
+          // ── Validar que el producto esté ACTIVE para poder comprarlo ──
+          if (product.status !== 'ACTIVE') {
+            const statusLabel = product.status === 'INACTIVE' ? 'descontinuado' : 'archivado';
+            throw boom.badRequest(
+              `No se puede comprar/reabastecer el producto "${product.name}" (ID: ${product.id}) porque está ${statusLabel}. ` +
+              `Solo se puede comprar productos con status ACTIVE.`
+            );
+          }
 
           await purchas.addProduct(product, {
             through: { quantity: item.quantity, unitCost: item.unitCost },

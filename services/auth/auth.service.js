@@ -24,47 +24,80 @@ class AuthService {
     delete user.dataValues.password;
     const flatRoles = (user.roles || []).map(role => role.name.toUpperCase());
 
-    // --- SaaS Logic: Determine Active Company ---
-    // Buscar membresías activas en company_users
-    const memberships = await models.CompanyUser.findAll({
-      where: {
-        userId: user.id,
-        status: 'active'
-      },
-      include: ['company']
+    // Obtener roles de la tabla intermedia para determinar isSuperAdmin real
+    const roleLinks = await models.RoleUser.findAll({
+      where: { userId: user.id },
+      include: [{ model: models.Role, as: 'role', attributes: ['name'] }]
     });
+    const rolesDB = roleLinks.map(r => r.role?.name).filter(Boolean);
+    const isSuperAdmin = rolesDB.some(name => name.toLowerCase() === 'superadmin');
 
-    if (memberships.length === 0) {
-      throw boom.forbidden('Usuario sin empresa asignada. Contacte al administrador.');
-    }
+    // Combinar roles 
+    const finalRoles = [...new Set([...flatRoles, ...rolesDB.map(r => r.toUpperCase())])];
 
-    let activeCompanyId;
+    let activeCompanyId = null;
+    let tenantRole = null;
 
-    // Si el login trae targetCompanyId, validar que el user tenga membresía
-    if (targetCompanyId) {
-      const target = memberships.find(m => m.companyId === parseInt(targetCompanyId));
-      if (!target) {
-        throw boom.forbidden('No tienes acceso a la empresa solicitada');
+    if (isSuperAdmin) {
+      // Login de SuperAdmin SIN exigir company_users
+      // Opcional targetCompanyId (impersonación durante login)
+      if (targetCompanyId) {
+        const companyExists = await models.Company.findByPk(targetCompanyId);
+        if (!companyExists) throw boom.notFound('La empresa solicitada no existe');
+        activeCompanyId = parseInt(targetCompanyId);
       }
-      activeCompanyId = target.companyId;
+      tenantRole = 'superadmin';
     } else {
-      // Usar la primera company activa
-      activeCompanyId = memberships[0].companyId;
+      // --- Lógica normal (SaaS): Exigir membresía activa ---
+      const memberships = await models.CompanyUser.findAll({
+        where: {
+          userId: user.id,
+          status: 'active'
+        },
+        include: ['company']
+      });
+
+      if (memberships.length === 0) {
+        throw boom.forbidden('Usuario sin empresa asignada. Contacte al administrador.');
+      }
+
+      // Si el login trae targetCompanyId, validar que el user tenga membresía
+      if (targetCompanyId) {
+        const target = memberships.find(m => m.companyId === parseInt(targetCompanyId));
+        if (!target) {
+          throw boom.forbidden('No tienes acceso a la empresa solicitada');
+        }
+        activeCompanyId = target.companyId;
+        tenantRole = target.role;
+      } else {
+        // Usar la primera company activa
+        activeCompanyId = memberships[0].companyId;
+        tenantRole = memberships[0].role;
+      }
     }
 
-    // Si es admin de la empresa administradora (ID 1), le damos rol SUPERADMIN para el frontend
-    if (activeCompanyId === 1 && flatRoles.includes('ADMIN') && !flatRoles.includes('SUPERADMIN')) {
-      flatRoles.push('SUPERADMIN');
-    }
+    return { ...user.dataValues, roles: finalRoles, activeCompanyId, tenantRole, isSuperAdmin };
+  }
 
-    return { ...user.dataValues, roles: flatRoles, activeCompanyId };
+  async impersonate(user, companyId) {
+    if (!user.isSuperAdmin && !(user.roles && user.roles.includes('SUPERADMIN'))) {
+      throw boom.forbidden('Solo superadmin puede impersonar');
+    }
+    const companyExists = await models.Company.findByPk(companyId);
+    if (!companyExists) throw boom.notFound('Company no existe');
+
+    const newUser = { ...user, activeCompanyId: parseInt(companyId), tenantRole: 'superadmin' };
+    return this.signToken(newUser);
   }
 
   signToken(user) {
     const payload = {
-      sub: user.id,
+      sub: user.id || user.sub, // SOPORTA user object from getUser o payload del passport
       roles: user.roles,
-      companyId: user.activeCompanyId || user.companyId // Prefer activeCompanyId
+      companyId: user.activeCompanyId || user.companyId, // El tenant primario / DB original
+      activeCompanyId: user.activeCompanyId || user.companyId,
+      tenantRole: user.tenantRole,
+      isSuperAdmin: user.isSuperAdmin
     }
     const token = jwt.sign(payload, config.jwtSecret);
     return {

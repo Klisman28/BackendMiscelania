@@ -37,12 +37,15 @@ const corsOptions = {
       callback(new Error(`No permitido por CORS. El origen '${origin}' no está en la lista de permitidos.`));
     }
   },
-  methods: 'GET,POST,PUT,DELETE', // Métodos permitidos
-  allowedHeaders: 'Content-Type,Authorization', // Cabeceras permitidas
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'], // Métodos permitidos
+  allowedHeaders: ['Content-Type', 'Authorization'], // Cabeceras permitidas
   credentials: true, // Permitir credenciales (cookies, tokens, etc.)
 };
 
-// Usar CORS con las opciones configuradas
+// Configurar app.options para responder con preflight a nivel global
+app.options('*', cors(corsOptions));
+
+// Usar CORS con las opciones configuradas ANTES de cualquier ruta o middleware de auth
 app.use(cors(corsOptions));
 
 // Middleware JSON global, excepto para webhook de Stripe que requiere raw body

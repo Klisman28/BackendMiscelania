@@ -53,6 +53,9 @@ const createProductSchema = Joi.object({
   description: Joi.string().allow('').optional(),  // Campo descripción opcional
 
   // features: features
+  initialStock: Joi.number().integer().min(0).optional(),
+  warehouseId: Joi.number().integer().optional(),
+  stockDescription: Joi.string().allow('').optional()
 });
 
 // Schema simple para crear productos con campos mínimos
@@ -80,9 +83,6 @@ const createSimpleProductSchema = Joi.object({
 });
 
 // Schema para alta rápida de productos (Opción B)
-// Solo requiere: name, sku, cost, price, subcategoryId, unitId
-// brandId es opcional (se asigna/crea "GENÉRICA" si no viene)
-// utility, stock, stockMin son opcionales (defaults en service)
 const createQuickProductSchema = Joi.object({
   name: name.required(),
   sku: sku.required(),
@@ -102,7 +102,10 @@ const createQuickProductSchema = Joi.object({
     is: true,
     then: Joi.date().iso().required(),
     otherwise: Joi.alternatives().try(Joi.string().allow(''), Joi.valid(null)).optional()
-  })
+  }),
+  initialStock: Joi.number().integer().min(0).optional(),
+  warehouseId: Joi.number().integer().optional(),
+  stockDescription: Joi.string().allow('').optional()
 });
 
 const updateProductSchema = Joi.object({
@@ -134,11 +137,29 @@ const updateProductSchema = Joi.object({
     Joi.object({
       id: Joi.string().required(),
       name: Joi.string().required(),
-      // blob:… es una URI válida, por eso solo validamos que sea string
       img: Joi.string().required()
     })
+  ).optional(),
+  removeImage: Joi.alternatives().try(
+    Joi.boolean(),
+    Joi.string().valid('true', 'false')
   ).optional()
 }).unknown(false);
+
+// ══════════════════════════════════════════════════════════════
+// ☞ Schema para PATCH /api/products/:id/status
+// ══════════════════════════════════════════════════════════════
+const updateProductStatusSchema = Joi.object({
+  status: Joi.string().valid('ACTIVE', 'INACTIVE', 'ARCHIVED').required()
+    .messages({
+      'any.only': 'Status debe ser uno de: ACTIVE, INACTIVE, ARCHIVED',
+      'any.required': 'El campo status es requerido'
+    }),
+  reason: Joi.string().max(500).allow('').optional()
+    .messages({
+      'string.max': 'La razón no puede exceder 500 caracteres'
+    })
+});
 
 const getProductSchema = Joi.object({
   id: id.required(),
@@ -152,7 +173,10 @@ const queryProductSchema = Joi.object({
   sortDirection,
   filterField,
   filterType,
-  filterValue
+  filterValue,
+  status: Joi.string().valid('ACTIVE', 'INACTIVE', 'ARCHIVED').optional(),
+  includeInactive: Joi.string().valid('true', 'false').optional(),
+  includeArchived: Joi.string().valid('true', 'false').optional()
 });
 
 const searchProductSchema = Joi.object({
@@ -163,4 +187,13 @@ const searchProductSchema = Joi.object({
 
 const hasExpiration = Joi.boolean().default(false);
 
-module.exports = { createProductSchema, createSimpleProductSchema, createQuickProductSchema, getProductSchema, queryProductSchema, updateProductSchema, searchProductSchema }
+module.exports = {
+  createProductSchema,
+  createSimpleProductSchema,
+  createQuickProductSchema,
+  getProductSchema,
+  queryProductSchema,
+  updateProductSchema,
+  searchProductSchema,
+  updateProductStatusSchema
+}
