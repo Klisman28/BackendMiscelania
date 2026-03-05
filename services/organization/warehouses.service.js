@@ -95,7 +95,7 @@ class WarehouseService {
             {
                 model: models.Product,
                 as: 'product',
-                attributes: ['id', 'name', 'sku', 'price', 'imageUrl', 'stock', 'stockMin'],
+                attributes: ['id', 'name', 'sku', 'price', 'imageUrl', 'imageKey', 'stock', 'stockMin'],
                 include: [
                     { model: models.Brand, as: 'brand', attributes: ['id', 'name'] },
                     { model: models.Unit, as: 'unit', attributes: ['id', 'symbol'] },
