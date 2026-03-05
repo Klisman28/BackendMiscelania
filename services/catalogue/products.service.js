@@ -5,6 +5,15 @@ const { PRODUCT_STATUS } = require('../../database/models/product.model');
 
 const { processImage, deleteFile, sharp } = require('../../utils/file');
 const InventoryService = require('../transaction/inventory.service');
+const { S3Client, DeleteObjectCommand } = require('@aws-sdk/client-s3');
+
+const s3Client = new S3Client({
+    region: process.env.AWS_REGION || 'us-east-1',
+    credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+    },
+});
 
 class ProductsService {
     // ... existing find methods ...
@@ -204,13 +213,23 @@ class ProductsService {
 
 
     async create(data, isQuickMode = false, file = null, companyId) {
-        // 1. Validar que el SKU no exista
+        // 1. Validar que el SKU no exista en esta compañía
         if (data.sku) {
             const existingProduct = await models.Product.findOne({
                 where: { sku: data.sku, companyId }
             });
             if (existingProduct) {
-                throw boom.conflict(`El SKU "${data.sku}" ya está registrado en el producto: ${existingProduct.name}`);
+                throw boom.conflict(`El SKU "${data.sku}" ya está registrado en tu compañía (producto: ${existingProduct.name})`);
+            }
+        }
+
+        // 2. Validar que el NOMBRE no exista en esta compañía
+        if (data.name) {
+            const existingByName = await models.Product.findOne({
+                where: { name: data.name, companyId }
+            });
+            if (existingByName) {
+                throw boom.conflict(`Ya existe un producto con el nombre "${data.name}" en tu compañía`);
             }
         }
 
@@ -325,6 +344,20 @@ class ProductsService {
         // Clean removeImage from updates (not a DB column)
         const shouldRemoveImage = updates.removeImage === true || updates.removeImage === 'true';
         delete updates.removeImage;
+
+        if (updates.imageKey === null) {
+            if (product.imageKey) {
+                try {
+                    await s3Client.send(new DeleteObjectCommand({
+                        Bucket: process.env.AWS_S3_BUCKET || 'imagepos',
+                        Key: product.imageKey
+                    }));
+                } catch (error) {
+                    console.error('Error deleting from S3', error);
+                }
+            }
+            updates.imageKey = null;
+        }
 
         // Asegurarse de que expirationDate solo se guarde si hasExpiration es true
         if (updates.hasExpiration === true && updates.expirationDate) {

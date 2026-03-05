@@ -28,16 +28,13 @@ const ProductSchema = {
     sku: {
         allowNull: true,
         type: DataTypes.STRING,
-        unique: true
     },
     name: {
         allowNull: true,
         type: DataTypes.STRING,
-        unique: true
     },
     slug: {
         type: DataTypes.STRING,
-        unique: true
     },
     cost: {
         type: DataTypes.DECIMAL(8, 2),
@@ -64,6 +61,11 @@ const ProductSchema = {
         allowNull: true,
         type: DataTypes.STRING,
         field: 'image_url'
+    },
+    imageKey: {
+        allowNull: true,
+        type: DataTypes.STRING,
+        field: 'image_key'
     },
     expirationDate: {
         allowNull: true,

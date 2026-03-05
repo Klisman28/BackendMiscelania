@@ -13,16 +13,13 @@ const BrandSchema = {
     name: {
         allowNull: true,
         type: DataTypes.STRING,
-        unique: true
     },
     code: {
         allowNull: true,
         type: DataTypes.STRING,
-        unique: true
     },
     slug: {
         type: DataTypes.STRING,
-        unique: true
     },
     companyId: {
         field: 'company_id',

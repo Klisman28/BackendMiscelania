@@ -12,12 +12,10 @@ const UnitSchema = {
     name: {
         allowNull: true,
         type: DataTypes.STRING,
-        unique: true
     },
     symbol: {
         allowNull: true,
         type: DataTypes.STRING,
-        unique: true
     },
     companyId: {
         field: 'company_id',

@@ -11,6 +11,7 @@ const stock = Joi.number().integer().min(0);
 const stockMin = Joi.number().integer().min(0);
 const expirationDate = Joi.date().iso().optional();
 const imageUrl = Joi.string().uri().allow('').optional();
+const imageKey = Joi.string().allow('').optional();
 const brandId = Joi.number().integer();
 const subcategoryId = Joi.number().integer();
 const unitId = Joi.number().integer();
@@ -40,6 +41,7 @@ const createProductSchema = Joi.object({
     otherwise: Joi.alternatives().try(Joi.string().allow(''), Joi.valid(null)).optional()
   }),
   imageUrl: Joi.string().uri().allow('').optional(), // Esto permite null y cadenas vacías
+  imageKey: Joi.alternatives().try(Joi.string().allow(''), Joi.valid(null)).optional(),
   brandId: brandId.required(),
   subcategoryId: subcategoryId.required(),
   unitId: unitId.required(),
@@ -70,6 +72,7 @@ const createSimpleProductSchema = Joi.object({
   stockMin: stockMin.optional().default(0),
   description: Joi.string().allow('').optional(),
   imageUrl: Joi.string().uri().allow('').optional(),
+  imageKey: Joi.alternatives().try(Joi.string().allow(''), Joi.valid(null)).optional(),
   hasExpiration: Joi.boolean().optional().default(false),
   expirationDate: Joi.when('hasExpiration', {
     is: true,
@@ -97,6 +100,7 @@ const createQuickProductSchema = Joi.object({
   stockMin: stockMin.optional(),
   description: Joi.string().allow('').optional(),
   imageUrl: Joi.string().uri().allow('').optional(),
+  imageKey: Joi.alternatives().try(Joi.string().allow(''), Joi.valid(null)).optional(),
   hasExpiration: Joi.boolean().optional(),
   expirationDate: Joi.when('hasExpiration', {
     is: true,
@@ -125,6 +129,10 @@ const updateProductSchema = Joi.object({
   hasExpiration: Joi.boolean().optional(),  // Permitir `hasExpiration`
   imageUrl: Joi.alternatives().try(
     Joi.string().uri().allow(''),
+    Joi.valid(null)
+  ).optional(),
+  imageKey: Joi.alternatives().try(
+    Joi.string().allow(''),
     Joi.valid(null)
   ).optional(),
 

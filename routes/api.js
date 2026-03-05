@@ -29,6 +29,7 @@ const { tenantGuard } = require('../middlewares/tenant.handler');
 const notesRouter = require('./notes/notes.router');
 const reportRouter = require('./report/reports.router');
 const saasRouter = require('./saas/saas.router');
+const uploadsRouter = require('./uploads/uploads.router');
 
 function apiRouter(app) {
     const router = express.Router();
@@ -179,6 +180,13 @@ function apiRouter(app) {
         tenantGuard,
         checkRoles('almacenero', 'admin'),
         inventoryRouter
+    );
+
+    router.use('/uploads', passport.authenticate('jwt',
+        { session: false }),
+        tenantGuard,
+        checkRoles('admin', 'almacenero'),
+        uploadsRouter
     );
 
 
