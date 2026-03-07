@@ -87,7 +87,7 @@ const sequelize = new Sequelize(process.env.DB_NAME, process.env.DB_USERNAME, pr
   dialect: 'mysql',
   dialectModule: require('mysql2'),
   port: process.env.DB_PORT,
-  logging: msg => console.log('[SQL]', msg), // Movido al nivel correcto
+  logging: process.env.NODE_ENV !== 'production' ? (msg => console.log('[SQL]', msg)) : false,
   dialectOptions: {
     ssl: {
       rejectUnauthorized: false, // aunque no se use SSL, esto evita errores cuando se intenta forzar

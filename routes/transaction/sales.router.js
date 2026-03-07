@@ -79,7 +79,7 @@ router.put('/:id',
     }
 );
 
-router.put('/:id',
+router.patch('/:id/return',
     validatorHandler(getSaleSchema, 'params'),
     async (req, res, next) => {
         try {
@@ -99,7 +99,7 @@ router.delete('/:id',
         try {
             const { id } = req.params;
             await service.delete(id, req.companyId);
-            success(res, id, 'Venta anulada con éxito', 201);
+            success(res, id, 'Venta anulada con éxito');
         } catch (error) {
             next(error);
         }

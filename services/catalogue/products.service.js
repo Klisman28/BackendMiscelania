@@ -2,6 +2,7 @@ const boom = require('@hapi/boom');
 const { Op } = require('sequelize');
 const { models } = require('../../libs/sequelize');
 const { PRODUCT_STATUS } = require('../../database/models/product.model');
+const { getStockLevel, STOCK_LEVELS } = require('../../utils/stockLevel');
 
 const { processImage, deleteFile, sharp } = require('../../utils/file');
 const InventoryService = require('../transaction/inventory.service');
@@ -17,6 +18,11 @@ const s3Client = new S3Client({
 
 class ProductsService {
     // ... existing find methods ...
+    // Whitelist for sortable columns to prevent injection
+    static SORT_WHITELIST = ['id', 'name', 'sku', 'price', 'cost', 'stock', 'stockMin', 'status', 'createdAt', 'updatedAt', 'expirationDate'];
+    // Whitelist for filter operators
+    static FILTER_OP_WHITELIST = ['eq', 'ne', 'gt', 'gte', 'lt', 'lte', 'like', 'between'];
+
     async find(query, companyId) {
         if (!companyId) {
             throw boom.badRequest('Company ID is required');
@@ -28,21 +34,20 @@ class ProductsService {
 
         const statusWhere = {};
         if (includeArchived === 'true') {
-            // "Archivados" toggle active -> show ONLY ARCHIVED (or handle backend generically)
-            // But if filterField=status is sent from frontend, this will get overwritten anyway.
-            // Let's ensure the base where allows it.
             statusWhere.status = ['ACTIVE', 'ARCHIVED'];
         } else if (includeInactive === 'true') {
             statusWhere.status = ['ACTIVE', 'INACTIVE'];
         } else {
-            // Default (no toggles) -> show ONLY ACTIVE
             statusWhere.status = 'ACTIVE';
         }
 
-        // Si el frontend envía 'status' directamente en la query pidiéndolo explícitamente:
         if (query.status) {
             statusWhere.status = query.status.toUpperCase();
         }
+
+        // Validate sortColumn against whitelist
+        const safeSortColumn = ProductsService.SORT_WHITELIST.includes(sortColumn) ? sortColumn : 'id';
+        const safeSortDir = ['ASC', 'DESC'].includes((sortDirection || '').toUpperCase()) ? sortDirection.toUpperCase() : 'DESC';
 
         const options = {
             where: { companyId, ...statusWhere },
@@ -63,7 +68,7 @@ class ProductsService {
                     attributes: ['symbol']
                 }
             ],
-            order: [(sortColumn) ? [sortColumn, sortDirection] : ['id', 'DESC']]
+            order: [[safeSortColumn, safeSortDir]]
         }
         const optionsCount = { where: { companyId } };
 
@@ -82,6 +87,7 @@ class ProductsService {
             }
 
             optionsCount.where = {
+                ...optionsCount.where,
                 name: {
                     [Op.like]: `%${search}%`
                 }
@@ -121,17 +127,18 @@ class ProductsService {
                     ]
                 }
             },
-            include: [
-                { model: models.Brand, as: 'brand', attributes: ['name'] },
-                { model: models.Subcategory, as: 'subcategory', attributes: ['name'] },
-                { model: models.Unit, as: 'unit', attributes: ['symbol'] }
-            ],
+            // brand, subcategory, unit auto-included by defaultScope
             order: [['expirationDate', 'ASC']]
         });
     }
 
 
     addFilter(filterField, filterType, filterValue) {
+        // Validate filterType against whitelist to prevent operator injection
+        if (!ProductsService.FILTER_OP_WHITELIST.includes(filterType)) {
+            return null;
+        }
+
         // Filtros numéricos
         const numericFloatFields = ['cost', 'price'];
         const numericIntFields = ['stockMin', 'stock'];
@@ -149,13 +156,11 @@ class ProductsService {
             case 'expirationDate':
                 return { [Op[filterType]]: filterValue };
             case 'status':
-                // Ahora status es ENUM string, filtrar directo
                 if (filterType === 'like') {
                     const value = filterValue.toUpperCase();
                     if (['ACTIVE', 'INACTIVE', 'ARCHIVED'].includes(value)) {
                         return { [Op.eq]: value };
                     }
-                    // Mapeo amigable
                     if (value === 'ACTIVO') return { [Op.eq]: 'ACTIVE' };
                     if (value === 'INACTIVO' || value === 'DESCONTINUADO') return { [Op.eq]: 'INACTIVE' };
                     if (value === 'ARCHIVADO') return { [Op.eq]: 'ARCHIVED' };
@@ -171,23 +176,7 @@ class ProductsService {
 
         const options = {
             where: { companyId },
-            include: [
-                {
-                    model: models.Brand,
-                    as: 'brand',
-                    attributes: ['name']
-                },
-                {
-                    model: models.Subcategory,
-                    as: 'subcategory',
-                    attributes: ['name']
-                },
-                {
-                    model: models.Unit,
-                    as: 'unit',
-                    attributes: ['symbol']
-                }
-            ],
+            // brand, subcategory, unit auto-included by defaultScope
             order: [['name', 'DESC']]
         }
 
@@ -308,13 +297,7 @@ class ProductsService {
         }
 
         // Retornar producto recargado con includes y stock real tras el movimiento
-        const createdProduct = await models.Product.findByPk(product.id, {
-            include: [
-                { model: models.Brand, as: 'brand', attributes: ['id', 'name'] },
-                { model: models.Subcategory, as: 'subcategory', attributes: ['id', 'name', 'categoryId'] },
-                { model: models.Unit, as: 'unit', attributes: ['id', 'symbol'] }
-            ]
-        });
+        const createdProduct = await models.Product.findByPk(product.id);
 
         return createdProduct;
     }
@@ -322,8 +305,8 @@ class ProductsService {
     async findOne(id, companyId) {
         // Usamos scope withArchived para poder encontrar productos en cualquier status
         const product = await models.Product.scope('withArchived').findOne({
-            where: { id, companyId },
-            include: ['brand', 'subcategory', 'unit']
+            where: { id, companyId }
+            // relaciones incluidas por el default scope
         });
         if (!product) {
             throw boom.notFound('No se encontró ningún producto');
@@ -390,13 +373,7 @@ class ProductsService {
         await product.update(updates);
 
         // Recargar el producto para devolver el stock real (no el del body)
-        const reloaded = await models.Product.scope('withArchived').findByPk(id, {
-            include: [
-                { model: models.Brand, as: 'brand', attributes: ['id', 'name'] },
-                { model: models.Subcategory, as: 'subcategory', attributes: ['id', 'name', 'categoryId'] },
-                { model: models.Unit, as: 'unit', attributes: ['id', 'symbol'] }
-            ]
-        });
+        const reloaded = await models.Product.scope('withArchived').findByPk(id);
         return reloaded;
     }
 
@@ -537,6 +514,124 @@ class ProductsService {
             where: { companyId }
         });
         return units;
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // ☞ LOW-STOCK ALERTS
+    // ══════════════════════════════════════════════════════════════
+
+    /**
+     * List products with low stock or out of stock.
+     * Only considers ACTIVE products.
+     *
+     * @param {object} query  — { level, limit, offset, search }
+     * @param {number} companyId
+     */
+    async findLowStock(query, companyId) {
+        if (!companyId) throw boom.badRequest('Company ID is required');
+
+        const { level, limit: qLimit, offset: qOffset, search } = query;
+        const limit = Math.min(parseInt(qLimit, 10) || 50, 200);
+        const offset = parseInt(qOffset, 10) || 0;
+
+        // Base: ACTIVE products where stock <= stockMin
+        const where = {
+            companyId,
+            status: 'ACTIVE',
+            stockMin: { [Op.gt]: 0 },                // only products with a configured min
+            [Op.or]: [
+                { stock: { [Op.lte]: models.sequelize.col('stock_min') } },
+                { stock: { [Op.lte]: 0 } },
+            ]
+        };
+
+        // Optional: filter by severity level
+        if (level === 'out_of_stock') {
+            delete where[Op.or];
+            where.stock = { [Op.lte]: 0 };
+        } else if (level === 'low_stock') {
+            delete where[Op.or];
+            where.stock = {
+                [Op.gt]: 0,
+                [Op.lte]: models.sequelize.col('stock_min'),
+            };
+        }
+
+        if (search && search.trim()) {
+            where[Op.and] = [
+                {
+                    [Op.or]: [
+                        { name: { [Op.like]: `%${search}%` } },
+                        { sku: { [Op.like]: `%${search}%` } },
+                    ]
+                }
+            ];
+        }
+
+        const { count, rows } = await models.Product.scope('withArchived').findAndCountAll({
+            where,
+            limit,
+            offset,
+            order: [['stock', 'ASC']],    // most critical first
+            attributes: ['id', 'name', 'sku', 'stock', 'stockMin', 'imageUrl', 'imageKey', 'price', 'status'],
+            include: [
+                { model: models.Brand, as: 'brand', attributes: ['id', 'name'] },
+                { model: models.Subcategory, as: 'subcategory', attributes: ['id', 'name'] },
+                { model: models.Unit, as: 'unit', attributes: ['id', 'symbol'] },
+            ],
+        });
+
+        // Attach computed stock-level to each row
+        const data = rows.map(p => {
+            const plain = p.toJSON();
+            plain.stockLevel = getStockLevel(plain.stock, plain.stockMin);
+            return plain;
+        });
+
+        return {
+            data,
+            total: count,
+            meta: { limit, offset },
+        };
+    }
+
+    /**
+     * Aggregate summary: counts of out-of-stock and low-stock products.
+     * Designed for dashboard cards and the header bell badge.
+     */
+    async getStockAlertsSummary(companyId) {
+        if (!companyId) throw boom.badRequest('Company ID is required');
+
+        const baseWhere = {
+            companyId,
+            status: 'ACTIVE',
+            stockMin: { [Op.gt]: 0 },
+        };
+
+        const outOfStock = await models.Product.scope('withArchived').count({
+            where: { ...baseWhere, stock: { [Op.lte]: 0 } },
+        });
+
+        const lowStock = await models.Product.scope('withArchived').count({
+            where: {
+                ...baseWhere,
+                stock: {
+                    [Op.gt]: 0,
+                    [Op.lte]: models.sequelize.col('stock_min'),
+                },
+            },
+        });
+
+        const totalProducts = await models.Product.scope('withArchived').count({
+            where: { companyId, status: 'ACTIVE' },
+        });
+
+        return {
+            outOfStock,
+            lowStock,
+            totalAlerts: outOfStock + lowStock,
+            totalProducts,
+        };
     }
 }
 

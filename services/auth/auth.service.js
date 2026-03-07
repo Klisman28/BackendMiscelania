@@ -99,7 +99,7 @@ class AuthService {
       tenantRole: user.tenantRole,
       isSuperAdmin: user.isSuperAdmin
     }
-    const token = jwt.sign(payload, config.jwtSecret);
+    const token = jwt.sign(payload, config.jwtSecret, { expiresIn: '8h' });
     return {
       user,
       token

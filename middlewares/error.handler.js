@@ -55,7 +55,8 @@ function ormErrorHandler(err, req, res, next) {
 }
 
 function errorHandler(err, req, res, next) {
-  error(res, 500, err.message, { stack: err.stack });
+  const isProd = process.env.NODE_ENV === 'production';
+  error(res, 500, isProd ? 'Error interno del servidor' : err.message, isProd ? undefined : { stack: err.stack });
   return; // ✅ Detiene el flujo
 
 }

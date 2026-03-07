@@ -4,6 +4,11 @@ const { sequelize, Sequelize, models } = require('../../libs/sequelize');
 const InventoryService = require('./inventory.service');
 
 class SalesService {
+  // Whitelist for sortable columns
+  static SORT_WHITELIST = ['id', 'total', 'igv', 'status', 'saleableType', 'createdAt', 'number'];
+  // Whitelist for filter operators
+  static FILTER_OP_WHITELIST = ['eq', 'ne', 'gt', 'gte', 'lt', 'lte', 'like'];
+
   constructor() {
     this.inventoryService = new InventoryService();
   }
@@ -19,6 +24,10 @@ class SalesService {
       filterValue
     } = query;
 
+    // Validate sort against whitelist
+    const safeSortColumn = SalesService.SORT_WHITELIST.includes(sortColumn) ? sortColumn : 'id';
+    const safeSortDir = ['ASC', 'DESC'].includes((sortDirection || '').toUpperCase()) ? sortDirection.toUpperCase() : 'DESC';
+
     const options = {
       where: { companyId },
       include: [
@@ -26,18 +35,7 @@ class SalesService {
           model: models.Product,
           as: 'products',
           attributes: ['id', 'name', 'sku'],
-          include: [
-            {
-              model: models.Brand,
-              as: 'brand',
-              attributes: ['name']
-            },
-            {
-              model: models.Unit,
-              as: 'unit',
-              attributes: ['symbol']
-            }
-          ],
+          // brand, subcategory, unit auto-included by Product's defaultScope
           through: {
             as: 'item',
             attributes: ['quantity', 'unitPrice']
@@ -66,9 +64,7 @@ class SalesService {
           attributes: ['name', 'ruc', 'email', 'telephone']
         }
       ],
-      order: (sortColumn)
-        ? [[sortColumn, sortDirection]]
-        : [['id', 'DESC']]
+      order: [[safeSortColumn, safeSortDir]]
     };
 
     const optionsCount = {
@@ -138,6 +134,10 @@ class SalesService {
 
 
   addFilter(filterField, filterType, filterValue) {
+    // Validate filterType against whitelist
+    if (filterType && !SalesService.FILTER_OP_WHITELIST.includes(filterType)) {
+      return null;
+    }
     switch (filterField) {
       case 'total':
         if (filterType !== "like" && !isNaN(filterValue)) {
@@ -325,18 +325,7 @@ class SalesService {
           model: models.Product,
           as: 'products',
           attributes: ['id', 'name'],
-          include: [
-            {
-              model: models.Brand,
-              as: 'brand',
-              attributes: ['name']
-            },
-            {
-              model: models.Unit,
-              as: 'unit',
-              attributes: ['symbol']
-            }
-          ],
+          // Auto-included by defaultScope
           through: {
             as: 'item',
             attributes: ['quantity', 'unitPrice']
@@ -393,11 +382,7 @@ class SalesService {
           model: models.Product,
           as: 'products',
           attributes: ['id', 'name'],
-          include: {
-            model: models.Brand,
-            as: 'brand',
-            attributes: ['name']
-          },
+          // Brand and others auto-included by defaultScope
           through: {
             as: 'item',
             attributes: ['quantity', 'unitPrice']

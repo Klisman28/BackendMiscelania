@@ -10,7 +10,7 @@ const {
     updatePasswordSchema
 } = require('../../schemas/organization/users.schema');
 
-const { tenantResolver } = require('../../middlewares/tenant');
+const { tenantGuard } = require('../../middlewares/tenant.handler');
 const passport = require('passport');
 
 const router = express.Router();
@@ -18,7 +18,7 @@ const service = new UsersService();
 
 // Aplicar middlewares de auth y tenant a todas las rutas de este router
 router.use(passport.authenticate('jwt', { session: false }));
-router.use(tenantResolver);
+router.use(tenantGuard);
 
 router.get('/',
     validatorHandler(queryUserSchema, 'query'),

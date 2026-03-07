@@ -160,6 +160,38 @@ class Product extends Model {
         this.belongsTo(models.Unit, {
             as: 'unit'
         });
+
+        const relationsInclude = [
+            { model: models.Brand, as: 'brand', attributes: ['id', 'name'] },
+            { model: models.Subcategory, as: 'subcategory', attributes: ['id', 'name'] },
+            { model: models.Unit, as: 'unit', attributes: ['id', 'symbol'] }
+        ];
+
+        // Add a default scope that includes relations automatically
+        this.addScope('defaultScope', {
+            where: {
+                status: ['ACTIVE', 'INACTIVE'] // Excludes ARCHIVED by default
+            },
+            include: relationsInclude
+        }, { override: true });
+
+        // Solo activos (para listados de venta, dropdowns, etc.)
+        this.addScope('active', {
+            where: { status: 'ACTIVE' },
+            include: relationsInclude
+        }, { override: true });
+
+        // Todos incluidos ARCHIVED (para reportes, admin)
+        this.addScope('withArchived', {
+            where: {},
+            include: relationsInclude
+        }, { override: true });
+
+        // Solo archivados
+        this.addScope('archived', {
+            where: { status: 'ARCHIVED' },
+            include: relationsInclude
+        }, { override: true });
     }
 
     static config(sequelize) {
@@ -170,26 +202,8 @@ class Product extends Model {
             timestamps: false,
             paranoid: true,           // Habilita soft delete con deletedAt
             deletedAt: 'deleted_at',  // Nombre de columna en DB
-            // Scopes para filtrar por status
-            defaultScope: {
-                where: {
-                    status: ['ACTIVE', 'INACTIVE'] // Por defecto excluye ARCHIVED
-                }
-            },
-            scopes: {
-                // Solo activos (para listados de venta, dropdowns, etc.)
-                active: {
-                    where: { status: 'ACTIVE' }
-                },
-                // Todos incluidos ARCHIVED (para reportes, admin)
-                withArchived: {
-                    where: {}
-                },
-                // Solo archivados
-                archived: {
-                    where: { status: 'ARCHIVED' }
-                }
-            }
+            // scopes with includes are defined dynamically in associate(models)
+            scopes: {}
         }
     }
 

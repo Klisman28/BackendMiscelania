@@ -166,23 +166,26 @@ class UsersService {
     async update(id, changes, companyId) {
         let user = await this.findOne(id, companyId);
 
+        // Sanitize companyId from changes
+        const { companyId: _c, company_id: _ci, ...safeChanges } = changes;
+
         // Validación de Seats SaaS al activar
-        if (changes.status === true && user.status !== true && user.companyId) {
+        if (safeChanges.status === true && user.status !== true && user.companyId) {
             await this._checkSeatsLimit(user.companyId);
         }
 
-        user = await user.update(changes);
+        user = await user.update(safeChanges);
 
-        if (changes.roles && changes.roles.length > 0) {
+        if (safeChanges.roles && safeChanges.roles.length > 0) {
             await models.RoleUser.destroy({
                 where: {
                     userId: id
                 }
             });
-            changes.roles.forEach(async (id) => {
-                const role = await models.Role.findByPk(id);
-                await user.addRole(role);
-            });
+            for (const roleId of safeChanges.roles) {
+                const role = await models.Role.findByPk(roleId);
+                if (role) await user.addRole(role);
+            }
         }
 
         delete user.dataValues.password;

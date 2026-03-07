@@ -8,6 +8,7 @@ const propertiesRouter = require('./catalogue/properties.router');
 const productsRouter = require('./catalogue/products.router');
 const featuresRouter = require('./catalogue/features.router');
 const authRouter = require('./auth/auth.router');
+const ticketsRouter = require('./transaction/tickets.router');
 
 const employeesRouter = require('./organization/employees.router');
 const usersRouter = require('./organization/users.router');
@@ -95,14 +96,14 @@ function apiRouter(app) {
     router.use('/employees', passport.authenticate('jwt',
         { session: false }),
         tenantGuard,
-        checkRoles('admin', 'admin'),
+        checkRoles('admin'),
         employeesRouter
     );
 
     router.use('/suppliers', passport.authenticate('jwt',
         { session: false }),
         tenantGuard,
-        checkRoles('admin', 'admin'),
+        checkRoles('admin'),
         suppliersRouter
     );
 
@@ -165,7 +166,7 @@ function apiRouter(app) {
         { session: false }),
         tenantGuard,
         checkRoles('cajero', 'admin'),
-        notesRouter
+        ticketsRouter
     );
 
     router.use('/warehouses', passport.authenticate('jwt',
@@ -202,7 +203,11 @@ function apiRouter(app) {
     router.use('/saas', require('./saas/webhook.router')); // Webhook raw body
 
     // ── Rutas protegidas SaaS ───────────────────────────────────────────────
-    router.use('/saas/roles', require('./saas/roles.router'));
+    router.use('/saas/roles',
+        passport.authenticate('jwt', { session: false }),
+        requireSuperAdmin,
+        require('./saas/roles.router')
+    );
     router.use('/saas', saasRouter);
 }
 

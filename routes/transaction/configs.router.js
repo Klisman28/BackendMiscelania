@@ -3,6 +3,7 @@ const ConfigsService = require('../../services/transaction/configs.service');
 const validatorHandler = require('../../middlewares/validator.handler');
 const {
     createConfigSchema,
+    updateConfigSchema,
     getConfigSchema,
 } = require('../../schemas/transaction/configs.schema');
 const { success } = require('../response');
@@ -49,7 +50,7 @@ router.get('/:id',
 
 router.put('/:id',
     validatorHandler(getConfigSchema, 'params'),
-    validatorHandler(createConfigSchema, 'body'),
+    validatorHandler(updateConfigSchema, 'body'),
     async (req, res, next) => {
         try {
             const { id } = req.params;

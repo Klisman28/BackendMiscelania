@@ -57,7 +57,8 @@ class SuppliersService {
 
     async update(id, changes, companyId) {
         let suppliers = await this.findOne(id, companyId);
-        suppliers = await suppliers.update(changes);
+        const { companyId: _c, company_id: _ci, ...safe } = changes;
+        suppliers = await suppliers.update(safe);
         return suppliers;
     }
 

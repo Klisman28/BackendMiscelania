@@ -57,7 +57,8 @@ class BrandsService {
 
     async update(id, changes, companyId) {
         let brand = await this.findOne(id, companyId);
-        brand = await brand.update(changes);
+        const { companyId: _c, company_id: _ci, ...safe } = changes;
+        brand = await brand.update(safe);
         return brand;
     }
 

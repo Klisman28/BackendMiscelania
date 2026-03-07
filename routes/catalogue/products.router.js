@@ -53,6 +53,40 @@ router.get('/units',
     }
 );
 
+// ══════════════════════════════════════════════════════════════
+// ☞ LOW-STOCK ALERTS
+// ══════════════════════════════════════════════════════════════
+
+/**
+ * GET /products/low-stock?level=out_of_stock|low_stock&limit=50&offset=0&search=
+ * List products with stock <= stockMin, ordered by most critical first.
+ */
+router.get('/low-stock',
+    async (req, res, next) => {
+        try {
+            const data = await service.findLowStock(req.query, req.companyId);
+            success(res, data, 'Productos con stock bajo');
+        } catch (error) {
+            next(error);
+        }
+    }
+);
+
+/**
+ * GET /products/stock-alerts/summary
+ * Aggregate counts: { outOfStock, lowStock, totalAlerts, totalProducts }
+ */
+router.get('/stock-alerts/summary',
+    async (req, res, next) => {
+        try {
+            const summary = await service.getStockAlertsSummary(req.companyId);
+            success(res, summary, 'Resumen de alertas de stock');
+        } catch (error) {
+            next(error);
+        }
+    }
+);
+
 router.get('/:id',
     validatorHandler(getProductSchema, 'params'),
     async (req, res, next) => {

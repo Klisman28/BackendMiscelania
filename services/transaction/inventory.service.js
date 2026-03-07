@@ -341,8 +341,8 @@ class InventoryService {
     async getBalance(warehouseId, query = {}, companyId) {
         // Extract and normalize parameters
         const pageIndex = parseInt(query.pageIndex || query.page || 1, 10);
-        const pageSize = Math.min(parseInt(query.pageSize || query.limit || 10, 10), 100);
-        const { search, sort } = query;
+        const pageSize = Math.min(parseInt(query.pageSize || query.limit || 50, 10), 100);
+        const { search, subcategoryId, sort } = query;
 
         // Validate pagination params
         if (pageIndex < 1 || pageSize < 1) {
@@ -361,24 +361,26 @@ class InventoryService {
                 {
                     model: models.Product,
                     as: 'product',
-                    attributes: ['id', 'name', 'sku', 'price', 'imageUrl', 'imageKey', 'description', 'stock', 'stockMin'],
-                    include: [
-                        { model: models.Brand, as: 'brand', attributes: ['id', 'name'] },
-                        { model: models.Unit, as: 'unit', attributes: ['id', 'symbol'] },
-                        { model: models.Subcategory, as: 'subcategory', attributes: ['id', 'name'] }
-                    ]
+                    attributes: ['id', 'name', 'sku', 'price', 'imageUrl', 'imageKey', 'description', 'stock', 'stockMin']
+                    // brand, unit, and subcategory are now auto-included by Product's defaultScope
                 }
             ]
         };
 
         // Search filter
+        const productWhere = {};
         if (search && search.trim()) {
-            options.include[0].where = {
-                [Op.or]: [
-                    { name: { [Op.like]: `%${search}%` } },
-                    { sku: { [Op.like]: `%${search}%` } }
-                ]
-            };
+            productWhere[Op.or] = [
+                { name: { [Op.like]: `%${search}%` } },
+                { sku: { [Op.like]: `%${search}%` } }
+            ];
+        }
+        if (subcategoryId) {
+            productWhere.subcategoryId = subcategoryId;
+        }
+
+        if (Object.keys(productWhere).length > 0) {
+            options.include[0].where = productWhere;
         }
 
         // Sorting with whitelist

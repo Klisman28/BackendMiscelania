@@ -39,6 +39,21 @@ const ConfigSchema = {
         allowNull: true,
         type: DataTypes.INTEGER,
         defaultValue: 1
+    },
+    companyName: {
+        field: 'company_name',
+        allowNull: true,
+        type: DataTypes.STRING
+    },
+    logoUrl: {
+        field: 'logo_url',
+        allowNull: true,
+        type: DataTypes.STRING
+    },
+    logoKey: {
+        field: 'logo_key',
+        allowNull: true,
+        type: DataTypes.STRING
     }
 }
 

@@ -1,6 +1,10 @@
 const boom = require('@hapi/boom');
 
 /**
+ * @deprecated Use tenantGuard (tenant.handler.js) instead.
+ * This legacy middleware is less secure — it allows header/query spoofing.
+ * Kept only for backward compatibility during migration.
+ *
  * Tenant resolver middleware.
  * Extrae companyId en orden de prioridad:
  * 1. req.user.companyId (JWT)
@@ -10,9 +14,6 @@ const boom = require('@hapi/boom');
 async function tenantResolver(req, res, next) {
     try {
         let companyId;
-
-        // DEBUG
-        console.log('[Tenant Middleware] req.user:', req.user);
 
         // 1. Extraer del JWT (propuesto en login o fallback al anterior payload)
         if (req.user && (req.user.companyId || req.user.activeCompanyId)) {
@@ -33,7 +34,6 @@ async function tenantResolver(req, res, next) {
             const userDb = await models.User.findByPk(req.user.sub, { attributes: ['companyId'] });
             if (userDb && userDb.companyId) {
                 companyId = userDb.companyId;
-                console.log('[Tenant Middleware] resolved companyId from DB fallback');
             }
         }
 
@@ -45,8 +45,6 @@ async function tenantResolver(req, res, next) {
         req.tenant = { companyId: parseInt(companyId, 10) };
         req.companyId = req.tenant.companyId;
 
-        console.log('[Tenant Middleware] resolved companyId:', req.tenant.companyId);
-
         next();
     } catch (error) {
         next(error);
@@ -54,3 +52,4 @@ async function tenantResolver(req, res, next) {
 }
 
 module.exports = { tenantResolver };
+

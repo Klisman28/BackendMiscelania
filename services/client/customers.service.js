@@ -52,7 +52,7 @@ class CustomersService {
             where: { companyId },
             order: [(sortColumn) ? [sortColumn, sortDirection] : ['id', 'DESC']]
         }
-        const optionsCount = {};
+        const optionsCount = { where: { companyId } };
 
         if (limit && offset) {
             options.limit = parseInt(limit);
@@ -115,24 +115,7 @@ class CustomersService {
         if (!customer) {
             throw boom.notFound('No se encontró ningún cliente');
         }
-
-        // Retornar estructura consistente con campos nuevos
-        return {
-            id: customer.id,
-            firstName: customer.firstName,
-            lastName: customer.lastName,
-            isFinalConsumer: customer.isFinalConsumer,
-            nit: customer.nit,
-            email: customer.email,
-            telephone: customer.telephone,
-            address: customer.address,
-            // Campos antiguos para compatibilidad (si existen)
-            ...(customer.name && { name: customer.name }),
-            ...(customer.firstLastname && { firstLastname: customer.firstLastname }),
-            ...(customer.secondLastname && { secondLastname: customer.secondLastname }),
-            ...(customer.fullname && { fullname: customer.fullname }),
-            ...(customer.dni && { dni: customer.dni })
-        };
+        return customer;
     }
 
     async update(id, changes, companyId) {

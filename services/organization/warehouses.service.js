@@ -68,7 +68,7 @@ class WarehouseService {
      * Used by "Nueva Venta" to show only sellable products.
      */
     async getStoreProducts(companyId, query = {}) {
-        const { search, pageIndex = 1, pageSize = 50 } = query;
+        const { search, subcategoryId, pageIndex = 1, pageSize = 50 } = query;
         const limit = Math.min(parseInt(pageSize, 10), 100);
         const offset = (parseInt(pageIndex, 10) - 1) * limit;
 
@@ -95,12 +95,8 @@ class WarehouseService {
             {
                 model: models.Product,
                 as: 'product',
-                attributes: ['id', 'name', 'sku', 'price', 'imageUrl', 'imageKey', 'stock', 'stockMin'],
-                include: [
-                    { model: models.Brand, as: 'brand', attributes: ['id', 'name'] },
-                    { model: models.Unit, as: 'unit', attributes: ['id', 'symbol'] },
-                    { model: models.Subcategory, as: 'subcategory', attributes: ['id', 'name'] }
-                ]
+                attributes: ['id', 'name', 'sku', 'price', 'imageUrl', 'imageKey', 'stock', 'stockMin']
+                // brand, unit, and subcategory are now auto-included by Product's defaultScope
             },
             {
                 model: models.Warehouse,
@@ -110,13 +106,19 @@ class WarehouseService {
         ];
 
         // Search filter
+        const productWhere = {};
         if (search && search.trim()) {
-            includeOptions[0].where = {
-                [Op.or]: [
-                    { name: { [Op.like]: `%${search}%` } },
-                    { sku: { [Op.like]: `%${search}%` } }
-                ]
-            };
+            productWhere[Op.or] = [
+                { name: { [Op.like]: `%${search}%` } },
+                { sku: { [Op.like]: `%${search}%` } }
+            ];
+        }
+        if (subcategoryId) {
+            productWhere.subcategoryId = subcategoryId;
+        }
+
+        if (Object.keys(productWhere).length > 0) {
+            includeOptions[0].where = productWhere;
         }
 
         const { count, rows } = await models.InventoryBalance.findAndCountAll({

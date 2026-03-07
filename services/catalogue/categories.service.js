@@ -57,7 +57,8 @@ class CategoriesService {
 
     async update(id, changes, companyId) {
         let category = await this.findOne(id, companyId);
-        category = await category.update(changes);
+        const { companyId: _c, company_id: _ci, ...safe } = changes;
+        category = await category.update(safe);
         return category;
     }
 
