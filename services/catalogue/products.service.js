@@ -1,5 +1,5 @@
 const boom = require('@hapi/boom');
-const { Op } = require('sequelize');
+const { Op, Sequelize } = require('sequelize');
 const { models } = require('../../libs/sequelize');
 const { PRODUCT_STATUS } = require('../../database/models/product.model');
 const { getStockLevel, STOCK_LEVELS } = require('../../utils/stockLevel');
@@ -540,7 +540,7 @@ class ProductsService {
             status: 'ACTIVE',
             stockMin: { [Op.gt]: 0 },                // only products with a configured min
             [Op.or]: [
-                { stock: { [Op.lte]: models.sequelize.col('stock_min') } },
+                { stock: { [Op.lte]: Sequelize.col('stock_min') } },
                 { stock: { [Op.lte]: 0 } },
             ]
         };
@@ -553,7 +553,7 @@ class ProductsService {
             delete where[Op.or];
             where.stock = {
                 [Op.gt]: 0,
-                [Op.lte]: models.sequelize.col('stock_min'),
+                [Op.lte]: Sequelize.col('stock_min'),
             };
         }
 
@@ -617,7 +617,7 @@ class ProductsService {
                 ...baseWhere,
                 stock: {
                     [Op.gt]: 0,
-                    [Op.lte]: models.sequelize.col('stock_min'),
+                    [Op.lte]: Sequelize.col('stock_min'),
                 },
             },
         });

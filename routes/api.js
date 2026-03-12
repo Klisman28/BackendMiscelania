@@ -31,6 +31,9 @@ const notesRouter = require('./notes/notes.router');
 const reportRouter = require('./report/reports.router');
 const saasRouter = require('./saas/saas.router');
 const uploadsRouter = require('./uploads/uploads.router');
+const profileRouter = require('./profile.router');
+const remindersRouter = require('./reminders.router');
+const whatsappWebhookRouter = require('./whatsapp.webhook.router');
 
 function apiRouter(app) {
     const router = express.Router();
@@ -198,9 +201,13 @@ function apiRouter(app) {
         usersRouter
     );
     router.use('/auth', authRouter);
+    router.use('/profile', profileRouter);
+
+    router.use('/notes/:noteId/reminders', remindersRouter);
 
     // ── Rutas públicas SaaS (sin autenticación) ──────────────────────────
     router.use('/saas', require('./saas/webhook.router')); // Webhook raw body
+    router.use('/webhooks', whatsappWebhookRouter);
 
     // ── Rutas protegidas SaaS ───────────────────────────────────────────────
     router.use('/saas/roles',

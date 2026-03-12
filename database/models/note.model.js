@@ -76,7 +76,18 @@ class Note extends Model {
       sequelize,              // instancia de conexión
       tableName: NOTE_TABLE, // nombre de la tabla
       modelName: 'Note',     // nombre del modelo
-      timestamps: true       // indica que tendrá createdAt y updatedAt
+      timestamps: true,       // indica que tendrá createdAt y updatedAt
+      hooks: {
+        afterUpdate: async (note, options) => {
+          if (note.changed('status') && (note.status === 'DONE' || note.status === 'FINALIZADO')) {
+            const now = new Date();
+            await sequelize.models.TaskReminder.update(
+              { status: 'cancelled', cancelledAt: now, errorText: 'Cancelado automáticamente al finalizar tarea' },
+              { where: { noteId: note.id, status: 'pending', companyId: note.companyId }, transaction: options.transaction }
+            );
+          }
+        }
+      }
     };
   }
 }

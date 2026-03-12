@@ -26,6 +26,7 @@ const { Config, ConfigSchema } = require('./config.model');
 const { Note, NoteSchema } = require('./note.model');
 const { Ticket, TicketSchema } = require('./ticket.model');
 const { Warehouse, WarehouseSchema } = require('./warehouse.model');
+const { TaskReminder, TaskReminderSchema } = require('./task-reminder.model');
 const { InventoryBalance, InventoryBalanceSchema } = require('./inventory-balance.model');
 const { InventoryMovement, InventoryMovementSchema } = require('./inventory-movement.model');
 const { Transfer, TransferSchema } = require('./transfer.model');
@@ -64,6 +65,7 @@ function setupModels(sequelize) {
     Note.init(NoteSchema, Note.config(sequelize));
     Ticket.init(TicketSchema, Ticket.config(sequelize));
     Warehouse.init(WarehouseSchema, Warehouse.config(sequelize));
+    TaskReminder.init(TaskReminderSchema, TaskReminder.config(sequelize));
     InventoryBalance.init(InventoryBalanceSchema, InventoryBalance.config(sequelize));
     InventoryMovement.init(InventoryMovementSchema, InventoryMovement.config(sequelize));
     Transfer.init(TransferSchema, Transfer.config(sequelize));
@@ -104,6 +106,7 @@ function setupModels(sequelize) {
     Subcategory.slugify(sequelize.models);
     Product.slugify(sequelize.models);
     Note.associate(sequelize.models);
+    TaskReminder.associate(sequelize.models);
 
 }
 

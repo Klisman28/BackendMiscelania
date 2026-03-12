@@ -62,6 +62,10 @@ app.use('/uploads', express.static(path.join(__dirname, 'public/uploads'))); // 
 // Autenticación
 require('./utils/auth');
 
+// Workers
+const { startReminderWorker } = require('./workers/reminder.worker');
+startReminderWorker();
+
 // Ruta principal
 app.get('/', (req, res) => {
   res.send('BAckend de Klisman ');

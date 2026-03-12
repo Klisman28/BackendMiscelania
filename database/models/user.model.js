@@ -58,6 +58,21 @@ const UserSchema = {
     allowNull: true,
     type: DataTypes.DATE,
     field: 'updated_at'
+  },
+  whatsappPhoneE164: {
+    allowNull: true,
+    type: DataTypes.STRING,
+    field: 'whatsapp_phone_e164',
+  },
+  whatsappOptInAt: {
+    allowNull: true,
+    type: DataTypes.DATE,
+    field: 'whatsapp_opt_in_at',
+  },
+  timezone: {
+    allowNull: false,
+    type: DataTypes.STRING,
+    defaultValue: 'America/Guatemala',
   }
 }
 
