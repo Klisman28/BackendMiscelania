@@ -4,126 +4,112 @@
  * Migration: Convierte TODOS los índices UNIQUE globales a índices
  * UNIQUE compuestos con company_id para soporte multi-tenant.
  * 
- * Tablas afectadas:
- * - categories   (name, code, slug)
- * - cashiers     (name, code)
- * - warehouses   (name)
- * - suppliers    (ruc)
- * - employees    (dni)
+ * Usa raw SQL para MySQL, consultando primero los índices reales.
  */
 module.exports = {
   async up(queryInterface, Sequelize) {
-    // Helper to safely remove an index
-    const safeRemoveIndex = async (table, indexName) => {
+    const qi = queryInterface.sequelize;
+
+    // Helper: obtener nombres de índices UNIQUE de una tabla para una columna específica
+    const getUniqueIndexes = async (table, column) => {
+      const [results] = await qi.query(
+        `SHOW INDEX FROM \`${table}\` WHERE Column_name = '${column}' AND Non_unique = 0 AND Key_name != 'PRIMARY'`
+      );
+      return [...new Set(results.map(r => r.Key_name))];
+    };
+
+    // Helper: eliminar índice de forma segura
+    const dropIndex = async (table, indexName) => {
       try {
-        await queryInterface.removeIndex(table, indexName);
-        console.log(`  ✓ Removed: ${table}.${indexName}`);
+        await qi.query(`ALTER TABLE \`${table}\` DROP INDEX \`${indexName}\``);
+        console.log(`  ✓ Dropped: ${table}.${indexName}`);
       } catch (e) {
-        console.log(`  ⚠ Skip ${table}.${indexName}: ${e.message}`);
+        console.log(`  ⚠ Could not drop ${table}.${indexName}: ${e.message}`);
       }
     };
 
+    // Helper: crear índice compuesto
+    const createCompositeIndex = async (table, columns, indexName) => {
+      const cols = columns.map(c => `\`${c}\``).join(', ');
+      await qi.query(`CREATE UNIQUE INDEX \`${indexName}\` ON \`${table}\` (${cols})`);
+      console.log(`  ✓ Created: ${indexName}`);
+    };
+
     // ═══════════════════════════════════════════
-    // 1. CATEGORIES
+    // 1. CATEGORIES (name, code, slug)
     // ═══════════════════════════════════════════
     console.log('\n── categories ──');
-    for (const idx of ['categories_name', 'categories_name_unique', 'name',
-                        'categories_code', 'categories_code_unique', 'code',
-                        'categories_slug', 'categories_slug_unique', 'slug']) {
-      await safeRemoveIndex('categories', idx);
+    for (const col of ['name', 'code', 'slug']) {
+      const indexes = await getUniqueIndexes('categories', col);
+      for (const idx of indexes) {
+        await dropIndex('categories', idx);
+      }
     }
-    await queryInterface.addIndex('categories', ['name', 'company_id'], {
-      unique: true, name: 'categories_name_company_unique'
-    });
-    await queryInterface.addIndex('categories', ['code', 'company_id'], {
-      unique: true, name: 'categories_code_company_unique'
-    });
-    await queryInterface.addIndex('categories', ['slug', 'company_id'], {
-      unique: true, name: 'categories_slug_company_unique'
-    });
-    console.log('  ✓ Created composite indexes for categories');
+    await createCompositeIndex('categories', ['name', 'company_id'], 'categories_name_company_unique');
+    await createCompositeIndex('categories', ['code', 'company_id'], 'categories_code_company_unique');
+    await createCompositeIndex('categories', ['slug', 'company_id'], 'categories_slug_company_unique');
 
     // ═══════════════════════════════════════════
-    // 2. CASHIERS
+    // 2. CASHIERS (name, code)
     // ═══════════════════════════════════════════
     console.log('\n── cashiers ──');
-    for (const idx of ['cashiers_name', 'cashiers_name_unique', 'name',
-                        'cashiers_code', 'cashiers_code_unique', 'code']) {
-      await safeRemoveIndex('cashiers', idx);
+    for (const col of ['name', 'code']) {
+      const indexes = await getUniqueIndexes('cashiers', col);
+      for (const idx of indexes) {
+        await dropIndex('cashiers', idx);
+      }
     }
-    await queryInterface.addIndex('cashiers', ['name', 'company_id'], {
-      unique: true, name: 'cashiers_name_company_unique'
-    });
-    await queryInterface.addIndex('cashiers', ['code', 'company_id'], {
-      unique: true, name: 'cashiers_code_company_unique'
-    });
-    console.log('  ✓ Created composite indexes for cashiers');
+    await createCompositeIndex('cashiers', ['name', 'company_id'], 'cashiers_name_company_unique');
+    await createCompositeIndex('cashiers', ['code', 'company_id'], 'cashiers_code_company_unique');
 
     // ═══════════════════════════════════════════
-    // 3. WAREHOUSES
+    // 3. WAREHOUSES (name)
     // ═══════════════════════════════════════════
     console.log('\n── warehouses ──');
-    for (const idx of ['warehouses_name', 'warehouses_name_unique', 'name']) {
-      await safeRemoveIndex('warehouses', idx);
+    const whIndexes = await getUniqueIndexes('warehouses', 'name');
+    for (const idx of whIndexes) {
+      await dropIndex('warehouses', idx);
     }
-    await queryInterface.addIndex('warehouses', ['name', 'company_id'], {
-      unique: true, name: 'warehouses_name_company_unique'
-    });
-    console.log('  ✓ Created composite index for warehouses');
+    await createCompositeIndex('warehouses', ['name', 'company_id'], 'warehouses_name_company_unique');
 
     // ═══════════════════════════════════════════
-    // 4. SUPPLIERS
+    // 4. SUPPLIERS (ruc)
     // ═══════════════════════════════════════════
     console.log('\n── suppliers ──');
-    for (const idx of ['suppliers_ruc', 'suppliers_ruc_unique', 'ruc']) {
-      await safeRemoveIndex('suppliers', idx);
+    const supIndexes = await getUniqueIndexes('suppliers', 'ruc');
+    for (const idx of supIndexes) {
+      await dropIndex('suppliers', idx);
     }
-    await queryInterface.addIndex('suppliers', ['ruc', 'company_id'], {
-      unique: true, name: 'suppliers_ruc_company_unique'
-    });
-    console.log('  ✓ Created composite index for suppliers');
+    await createCompositeIndex('suppliers', ['ruc', 'company_id'], 'suppliers_ruc_company_unique');
 
     // ═══════════════════════════════════════════
-    // 5. EMPLOYEES
+    // 5. EMPLOYEES (dni)
     // ═══════════════════════════════════════════
     console.log('\n── employees ──');
-    for (const idx of ['employees_dni', 'employees_dni_unique', 'dni']) {
-      await safeRemoveIndex('employees', idx);
+    const empIndexes = await getUniqueIndexes('employees', 'dni');
+    for (const idx of empIndexes) {
+      await dropIndex('employees', idx);
     }
-    await queryInterface.addIndex('employees', ['dni', 'company_id'], {
-      unique: true, name: 'employees_dni_company_unique'
-    });
-    console.log('  ✓ Created composite index for employees');
+    await createCompositeIndex('employees', ['dni', 'company_id'], 'employees_dni_company_unique');
 
-    console.log('\n✅ All tenant-scoped unique indexes created successfully!\n');
+    console.log('\n✅ All tenant-scoped unique indexes created!\n');
   },
 
   async down(queryInterface, Sequelize) {
-    // Revert: remove composite and restore global
-    // Categories
-    await queryInterface.removeIndex('categories', 'categories_name_company_unique');
-    await queryInterface.removeIndex('categories', 'categories_code_company_unique');
-    await queryInterface.removeIndex('categories', 'categories_slug_company_unique');
-    await queryInterface.addIndex('categories', ['name'], { unique: true });
-    await queryInterface.addIndex('categories', ['code'], { unique: true });
-    await queryInterface.addIndex('categories', ['slug'], { unique: true });
+    const qi = queryInterface.sequelize;
 
-    // Cashiers
-    await queryInterface.removeIndex('cashiers', 'cashiers_name_company_unique');
-    await queryInterface.removeIndex('cashiers', 'cashiers_code_company_unique');
-    await queryInterface.addIndex('cashiers', ['name'], { unique: true });
-    await queryInterface.addIndex('cashiers', ['code'], { unique: true });
+    const dropAndRestore = async (table, compositeIdx, column) => {
+      await qi.query(`ALTER TABLE \`${table}\` DROP INDEX \`${compositeIdx}\``);
+      await qi.query(`CREATE UNIQUE INDEX \`${column}\` ON \`${table}\` (\`${column}\`)`);
+    };
 
-    // Warehouses
-    await queryInterface.removeIndex('warehouses', 'warehouses_name_company_unique');
-    await queryInterface.addIndex('warehouses', ['name'], { unique: true });
-
-    // Suppliers
-    await queryInterface.removeIndex('suppliers', 'suppliers_ruc_company_unique');
-    await queryInterface.addIndex('suppliers', ['ruc'], { unique: true });
-
-    // Employees
-    await queryInterface.removeIndex('employees', 'employees_dni_company_unique');
-    await queryInterface.addIndex('employees', ['dni'], { unique: true });
+    await dropAndRestore('categories', 'categories_name_company_unique', 'name');
+    await dropAndRestore('categories', 'categories_code_company_unique', 'code');
+    await dropAndRestore('categories', 'categories_slug_company_unique', 'slug');
+    await dropAndRestore('cashiers', 'cashiers_name_company_unique', 'name');
+    await dropAndRestore('cashiers', 'cashiers_code_company_unique', 'code');
+    await dropAndRestore('warehouses', 'warehouses_name_company_unique', 'name');
+    await dropAndRestore('suppliers', 'suppliers_ruc_company_unique', 'ruc');
+    await dropAndRestore('employees', 'employees_dni_company_unique', 'dni');
   }
 };
