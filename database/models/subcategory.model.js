@@ -14,7 +14,6 @@ const SubcategorySchema = {
     name: {
         allowNull: true,
         type: DataTypes.STRING,
-        unique: true,
         get() {
             const newValue = this.getDataValue('name');
             return newValue[0].toUpperCase() + newValue.slice(1);
@@ -26,7 +25,6 @@ const SubcategorySchema = {
     code: {
         allowNull: true,
         type: DataTypes.STRING,
-        unique: true
     },
     // status: {
     //     type: DataTypes.INTEGER,
@@ -44,7 +42,6 @@ const SubcategorySchema = {
     // },
     slug: {
         type: DataTypes.STRING,
-        unique: true
     },
     companyId: {
         field: 'company_id',
@@ -90,7 +87,12 @@ class Subcategory extends Model {
             sequelize,
             tableName: SUBCATEGORY_TABLE,
             modelName: 'Subcategory',
-            timestamps: false
+            timestamps: false,
+            indexes: [
+                { unique: true, fields: ['name', 'company_id'], name: 'subcategories_name_company_unique' },
+                { unique: true, fields: ['code', 'company_id'], name: 'subcategories_code_company_unique' },
+                { unique: true, fields: ['slug', 'company_id'], name: 'subcategories_slug_company_unique' }
+            ]
         }
     }
 
