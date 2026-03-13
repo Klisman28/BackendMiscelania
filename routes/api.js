@@ -189,7 +189,7 @@ function apiRouter(app) {
     router.use('/uploads', passport.authenticate('jwt',
         { session: false }),
         tenantGuard,
-        checkRoles('admin', 'almacenero'),
+        checkRoles('admin', 'administrador', 'almacenero', 'ventas'),
         uploadsRouter
     );
 
