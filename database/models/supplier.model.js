@@ -16,7 +16,6 @@ const SupplierSchema = {
     ruc: {
         allowNull: true,
         type: DataTypes.STRING,
-        unique: true,
     },
     website: {
         type: DataTypes.STRING,
@@ -56,7 +55,10 @@ class Supplier extends Model {
             sequelize,
             tableName: SUPPLIER_TABLE,
             modelName: 'Supplier',
-            timestamps: false
+            timestamps: false,
+            indexes: [
+                { unique: true, fields: ['ruc', 'company_id'], name: 'suppliers_ruc_company_unique' }
+            ]
         }
     }
 }

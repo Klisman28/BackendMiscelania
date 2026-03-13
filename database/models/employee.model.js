@@ -55,7 +55,6 @@ const EmployeeSchema = {
     dni: {
         allowNull: true,
         type: DataTypes.STRING,
-        unique: true,
     },
     birthdate: {
         type: DataTypes.DATEONLY,
@@ -104,7 +103,10 @@ class Employee extends Model {
             sequelize,
             tableName: EMPPLOYEE_TABLE,
             modelName: 'Employee',
-            timestamps: false
+            timestamps: false,
+            indexes: [
+                { unique: true, fields: ['dni', 'company_id'], name: 'employees_dni_company_unique' }
+            ]
         };
     }
 }

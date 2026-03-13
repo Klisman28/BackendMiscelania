@@ -12,7 +12,6 @@ const WarehouseSchema = {
     name: {
         allowNull: false,
         type: DataTypes.STRING,
-        unique: true
     },
     code: {
         allowNull: true,
@@ -62,7 +61,10 @@ class Warehouse extends Model {
             sequelize,
             tableName: WAREHOUSE_TABLE,
             modelName: 'Warehouse',
-            timestamps: false
+            timestamps: false,
+            indexes: [
+                { unique: true, fields: ['name', 'company_id'], name: 'warehouses_name_company_unique' }
+            ]
         }
     }
 }

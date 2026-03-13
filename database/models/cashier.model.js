@@ -12,12 +12,10 @@ const CashierSchema = {
     name: {
         allowNull: true,
         type: DataTypes.STRING,
-        unique: true
     },
     code: {
         allowNull: true,
         type: DataTypes.STRING,
-        unique: true
     },
     status: {
         allowNull: true,
@@ -47,7 +45,11 @@ class Cashier extends Model {
             sequelize,
             tableName: CASHIER_TABLE,
             modelName: 'Cashier',
-            timestamps: false
+            timestamps: false,
+            indexes: [
+                { unique: true, fields: ['name', 'company_id'], name: 'cashiers_name_company_unique' },
+                { unique: true, fields: ['code', 'company_id'], name: 'cashiers_code_company_unique' }
+            ]
         }
     }
 }
