@@ -30,7 +30,8 @@ const querySubcategorySchema = Joi.object({
   limit,
   search,
   sortColumn,
-  sortDirection
+  sortDirection,
+  categoryId
 });
 
 module.exports = { createSubcategorySchema, getSubcategorySchema, querySubcategorySchema }

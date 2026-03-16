@@ -4,13 +4,18 @@ const { models } = require('../../libs/sequelize');
 
 class SubcategoriesService {
     async find(query, companyId) {
-        const { limit, offset, search, sortColumn, sortDirection } = query;
+        const { limit, offset, search, sortColumn, sortDirection, categoryId } = query;
         const options = {
             where: { companyId },
             include: ['category'],
             order: [(sortColumn) ? [sortColumn, sortDirection] : ['id', 'DESC']]
         }
         const optionsCount = { where: { companyId } };
+
+        if (categoryId) {
+            options.where.categoryId = parseInt(categoryId);
+            optionsCount.where.categoryId = parseInt(categoryId);
+        }
 
         if (limit && offset) {
             options.limit = parseInt(limit);
